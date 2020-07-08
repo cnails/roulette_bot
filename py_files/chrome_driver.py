@@ -10,7 +10,7 @@ import requests
 import selenium
 from bs4 import BeautifulSoup as bs
 from fake_useragent import UserAgent
-from move_mouse import ActionChainsChild
+from .move_mouse import ActionChainsChild
 from selenium import webdriver
 
 logging.basicConfig(
@@ -21,7 +21,7 @@ logging.basicConfig(
 LOG = logging.getLogger("chrome_driver")
 
 
-def return_driver(user_agent=None, proxy=False, hide=False, timeout=None, exclude_switches=True, exclude_photos=True):
+def return_driver(user_agent=None, proxy=False, hide=False, timeout=None, exclude_switches=False, exclude_photos=False):
     chrome_options = webdriver.ChromeOptions()
     ua = UserAgent()
     if user_agent is None:
@@ -55,9 +55,9 @@ def return_driver(user_agent=None, proxy=False, hide=False, timeout=None, exclud
             "test-type=webdriver",
             "use-mock-keychain",
             "user-data-dir=/var/folders/zz/zyxvpxvq6csfxvn_n0001_y8000_qk/T/.com.google.Chrome.drJGEY",
-            'enable-automation',
         ])
-
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    chrome_options.add_experimental_option("excludeSwitches", ['enable-automation'])
     chrome_options.add_experimental_option("prefs", {
         "profile.default_content_setting_values.notifications": 2,
     })
@@ -85,6 +85,13 @@ def return_driver(user_agent=None, proxy=False, hide=False, timeout=None, exclud
     width = random.randint(900, 1400)
     height = random.randint(900, 1400)
     driver.set_window_size(width, height)
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+    "source": """
+        Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined
+        })
+    """
+    })
 
     if timeout is not None:
         driver.implicitly_wait(timeout)
