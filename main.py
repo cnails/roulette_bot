@@ -1,6 +1,9 @@
 from py_files import chrome_driver
 
 
+SITES = ['pinnacle', 'williamhill']
+
+
 class Program:
     def __init__(self):
         pass
@@ -13,20 +16,25 @@ class Program:
 
 
 class Data:
-    def __init__(self):
+    def __init__(self, site='pinnacle'):
+        assert site in SITES, "site should be either of " + SITES
+        self.site = site
         self.driver = chrome_driver.return_driver()
         self.max_minus = 150
         self.prg = Program()
 
     def get_current_balance(self):
-        return self.driver.find_element_by_css_selector("whgg-account-button__balance").text()
+        if self.site == SITES[1]:
+            return self.driver.find_element_by_css_selector("whgg-account-button__balance").text()
+        else:
+            return self.driver.find_element_by_css_selector("whgg-account-button__balance").text()
 
     def get_recent_number(self):
-        ''' returns recent number '''
+        """ returns recent number """
         return self.driver.find_element_by_css_selector('[data-role="recent-number"] span').text()        
     
     def get_recent_numbers(self):
-        ''' returns recent numbers '''
+        """ returns recent numbers """
         return [elem.text() for elem in self.driver.find_elements_by_css_selector('[data-role="recent-number"] span')]        
 
     def make_move(self, numbers):

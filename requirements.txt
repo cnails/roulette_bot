@@ -1,5 +1,6 @@
-selenium
-BeautifulSoup4
-fake_useragent
-requests
-numpy
+selenium==3.141.0
+beautifulsoup4==4.9.1
+fake-useragent==0.1.11
+requests==2.24.0
+numpy==1.19.0
+pywinauto
