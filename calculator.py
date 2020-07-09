@@ -15,6 +15,7 @@ class Calculator:
         self.window = self.app.window(title="WINNINGS - 8")
         self.children = self.window.children()
         self.name_to_index, self.fell_dict, self.recommended_dict = self.parse_children()
+        # self.max_minus = -150
 
     def parse_children(self):
         name_to_index = {}

@@ -15,13 +15,11 @@ class Program:
         pass
 
 
-class Data:
-    def __init__(self, site='pinnacle'):
+class Browser:
+    def __init__(self, site=SITES[0], **kwargs):
         assert site in SITES, "site should be either of " + SITES
         self.site = site
-        self.driver = chrome_driver.return_driver()
-        self.max_minus = 150
-        self.prg = Program()
+        self.driver = chrome_driver.return_driver(**kwargs)
 
     def get_current_balance(self):
         if self.site == SITES[1]:
@@ -62,21 +60,23 @@ class Data:
         # path[data-bet-spot-id="$ID"]
 
     def login(self):
-        chrome_driver.get(self.driver, "https://livecasino.williamhill.com/en-gb/")
+        if self.site == SITES[0]:
+            chrome_driver.get(self.driver, "https://www.pinnacle.com/en/")
+        elif self.site == SITES[1]:
+            chrome_driver.get(self.driver, "https://livecasino.williamhill.com/en-gb/")
         self.driver.find_element_by_css_selector("button.action-login__button").click()
         self.driver.find_element_by_css_selector('[name="username"]').send_keys("betviktor")
         self.driver.find_element_by_css_selector('[name="password"]').send_keys("19821305aA")
         self.driver.find_element_by_css_selector('[type="submit"]').click()
         # тут явно таймслип нужен и проверка на то, что зашлось в акк
 
+    def __del__(self):
+        self.driver.quit()
+
 
 def main():
-    # driver.execute_script("""Object.defineProperty(navigator, 'webdriver', {
-    #   get: () => undefined,
-    # });""")
-    # driver = chrome_driver.return_driver()
-    data = Data()
-    data.login()
+    browser = Browser()
+    # data.login()
     # driver.execute_async_script("""
         
     # """)
