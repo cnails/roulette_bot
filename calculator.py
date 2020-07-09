@@ -6,6 +6,7 @@ from pywinauto.application import Application
 PATH_TO_EXE = os.path.join("lazy-z.com", "winnings", "winnings.exe")
 BUTTON = 'TBitBtn'
 EDIT = 'TMemo'
+INPUT_FIELDS = ['Max', 'Min', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
 
 
 class Calculator:
@@ -22,7 +23,7 @@ class Calculator:
         fell_dict = {}
         recommended_dict = {}
 
-        names = ['Max', 'Min', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
+        names = INPUT_FIELDS[:]
         recommended = 37
 
         for i, child in enumerate(self.children):
@@ -52,6 +53,13 @@ class Calculator:
         assert 0 <= num <= 36
         self.children[self.fell_dict[num]].click()
 
+    def insert_number(self, field, num):
+        """
+        field: one of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
+        """
+        assert field in INPUT_FIELDS, "should be one of " + INPUT_FIELDS
+        self.children[self.name_to_index[field]].set_edit_text(num)
+
     def focus_cell(self, num):
         self.children[num].set_focus()
 
@@ -59,8 +67,7 @@ class Calculator:
         """
         One of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
         """
-        assert field in ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка'], \
-            "should be one of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']"
+        assert field in INPUT_FIELDS, "should be one of " + INPUT_FIELDS
         return int(self.children[self.name_to_index[field]].element_info.name or 0)
 
     def undo_spin(self):
@@ -73,6 +80,9 @@ class Calculator:
                 values.append(i)
         return values
 
+    def __del__(self):
+        self.app.kill()
+
 
 def main():
     app = Calculator()
@@ -80,9 +90,11 @@ def main():
     app.set_number(16)
     app.set_number(0)
     app.set_number(36)
+    app.undo_spin()
 
     time.sleep(5)
-    for name in ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']:
+    for name in INPUT_FIELDS:
+        app.insert_number(name, 150)
         print(f'{name}: {app.get_field_value(name)}')
     print(app.get_recommended_values())
     # print(app.name_to_index)
