@@ -1,19 +1,17 @@
+import asyncio
 import logging
 import os
-import sys
 import platform
 import random
-import urllib.parse
-from random import randint
+import sys
 from pathlib import Path
 from time import sleep
 
-import requests
-import selenium
-from bs4 import BeautifulSoup as bs
 from fake_useragent import UserAgent
-from move_mouse import ActionChainsChild
+from proxybroker import Broker
 from selenium import webdriver
+
+from move_mouse import ActionChainsChild
 
 logging.basicConfig(
     filename=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.log"),
@@ -42,16 +40,43 @@ class CustomUserAgent:
 
 class CustomProxy:
     def __init__(self, proxy=None):
+        self.loop = asyncio.get_event_loop()
         proxy_server = None
         if proxy is not None:
+            if proxy is True:
+                proxy = self.get_proxy()
             proxy_server = proxy.split("://")[-1]
+
         LOG.info(f'proxy-server: {proxy_server}')
         self.proxy_server = proxy_server
+
+    def get_proxy(self, countries=None, excluded_countries=None):
+        proxies = asyncio.Queue()
+        broker = Broker(proxies)
+
+        countries = countries or frozenset()
+        excluded_countries = countries or {'RU'}
+        countries = list(countries - excluded_countries)
+        tasks = asyncio.gather(
+            broker.find(types=['HTTP', 'HTTPS'], countries=countries, limit=1),
+            self.__async__get_proxy(proxies)
+        )
+        return self.loop.run_until_complete(tasks)[-1]
+
+    @staticmethod
+    async def __async__get_proxy(proxies):
+        while True:
+            proxy = await proxies.get()
+            if proxy is not None:
+                proto = 'https' if 'HTTPS' in proxy.types else 'http'
+                proxy = f'{proto}://{proxy.host}:{proxy.port}'
+                LOG.info(f'Found proxy: {proxy}')
+                return proxy
 
 
 class CustomChromeOptions:
     def __init__(self, user_agent=None, exclude_switches=False, exclude_photos=False,
-            proxy=None, hide=False):
+                 proxy=None, hide=False):
         chrome_options = webdriver.ChromeOptions()
 
         # USER_AGENT
@@ -275,7 +300,7 @@ class Driver:
 
 
 def main():
-    driver = Driver(proxy=)
+    driver = Driver(proxy=True)
     driver.get('https://www.pinnacle.com/en/casino/games/live/roulette')
     sleep(10)
 
