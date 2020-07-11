@@ -3,15 +3,21 @@ import logging
 import os
 import platform
 import random
+import re
 import sys
+import time
 from pathlib import Path
 from time import sleep
 
+import selenium
 from fake_useragent import UserAgent
 from proxybroker import Broker
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.support.ui import WebDriverWait
 
-from move_mouse import ActionChainsChild
+from py_files.move_mouse import ActionChainsChild
 
 logging.basicConfig(
     filename=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.log"),
@@ -22,29 +28,54 @@ LOG.addHandler(logging.StreamHandler(sys.stdout))
 
 
 class CustomUserAgent:
-    def __init__(self, user_agent=None):
-        ua = UserAgent()
+    browsers = {
+        'chrome': r'Chrome/[^ ]+',
+        'safari': r'AppleWebKit/[^ ]+',
+        'opera': r'Opera\s.+$',
+        'firefox': r'Firefox/.+$',
+        'internetexplorer': r'Trident/[^;]+',
+    }
+
+    def __init__(self, user_agent=None, latest_version=True):
+        self.latest_version = latest_version
+        self.ua = UserAgent()
         if user_agent is None:
-            user_agent = ua.random
+            user_agent = self.get_random_user_agent()
         else:
             try:
                 user_agent = eval(f'user_agent.{user_agent}')
             except Exception:
                 LOG.info(f'bad user agent "{user_agent}", switching to random')
-                user_agent = ua.random
+                user_agent = self.get_random_user_agent()
             else:
                 LOG.info('using the following User-Agent:', user_agent)
         LOG.info(f'user-agent: {user_agent}')
         self.user_agent = user_agent
 
+    def get_random_user_agent(self):
+        if self.latest_version:
+            # browser = random.choice(self.ua.data_randomize)
+            browser = 'chrome'
+            user_agent = sorted(
+                self.ua.data_browsers[browser], key=lambda a: self.grp(self.browsers[browser], a)
+            )[-1]
+        else:
+            user_agent = self.ua.random
+        return user_agent
+
+    @staticmethod
+    def grp(pat, txt):
+        r = re.search(pat, txt)
+        return r.group(0) if r else '&'
+
 
 class CustomProxy:
-    def __init__(self, proxy=None):
+    def __init__(self, proxy=None, countries=None, excluded_countries=None):
         self.loop = asyncio.get_event_loop()
         proxy_server = None
         if proxy is not None:
             if proxy is True:
-                proxy = self.get_proxy()
+                proxy = self.get_proxy(countries=countries, excluded_countries=excluded_countries)
             proxy_server = proxy.split("://")[-1]
 
         LOG.info(f'proxy-server: {proxy_server}')
@@ -55,7 +86,7 @@ class CustomProxy:
         broker = Broker(proxies)
 
         countries = countries or frozenset()
-        excluded_countries = countries or {'RU'}
+        excluded_countries = excluded_countries or {'RU'}
         countries = list(countries - excluded_countries)
         tasks = asyncio.gather(
             broker.find(types=['HTTP', 'HTTPS'], countries=countries, limit=1),
@@ -76,7 +107,7 @@ class CustomProxy:
 
 class CustomChromeOptions:
     def __init__(self, user_agent=None, exclude_switches=False, exclude_photos=False,
-                 proxy=None, hide=False):
+                 proxy=None, hide=False, countries=None, excluded_countries=None):
         chrome_options = webdriver.ChromeOptions()
 
         # USER_AGENT
@@ -84,8 +115,9 @@ class CustomChromeOptions:
         chrome_options.add_argument(f'--user-agent={user_agent.user_agent}')
 
         # PROXY
-        proxy = CustomProxy(proxy=proxy)
-        chrome_options.add_argument(f'--proxy-server={proxy.proxy_server}')
+        proxy = CustomProxy(proxy=proxy, countries=countries, excluded_countries=excluded_countries)
+        if proxy.proxy_server is not None:
+            chrome_options.add_argument(f'--proxy-server={proxy.proxy_server}')
 
         # EXCLUDE_SWITCHES
         if exclude_switches:
@@ -124,7 +156,7 @@ class CustomChromeOptions:
 
         # ARGUMENTS
         chrome_options.add_argument('--profile-directory=Default')
-        # chrome_options.add_argument("--start-maximized")
+        chrome_options.add_argument("--start-maximized")
 
         # HIDE
         if hide:
@@ -136,13 +168,15 @@ class CustomChromeOptions:
 class Driver:
     def __init__(
             self, user_agent=None, proxy=None, hide=False, exclude_switches=False,
-            exclude_photos=False, width=None, height=None, timeout=None):
+            exclude_photos=False, width=None, height=None, timeout=None, countries=None,
+            excluded_countries=None):
         self.driver = None
 
         # CHROME_OPTIONS
         chrome_options = CustomChromeOptions(
             user_agent=user_agent, exclude_switches=exclude_switches,
             exclude_photos=exclude_photos, proxy=proxy, hide=hide,
+            countries=countries, excluded_countries=excluded_countries,
         )
 
         # CHROMEDRIVER name
@@ -151,8 +185,9 @@ class Driver:
         chromedriver = 'chromedriver.exe' if os_platform == 'Windows' else 'chromedriver'
 
         # INIT driver
+        LOG.info("INITIALIZING DRIVER")
         driver = webdriver.Chrome(
-            Path.cwd() / chromedriver,
+            (Path.cwd() / chromedriver).name,
             options=chrome_options.chrome_options,
         )
 
@@ -178,27 +213,73 @@ class Driver:
 
     def send(self, sel, text):
         """ send value 'text' to web element defined by selector """
-        self.find_by_css_selector(sel).send_keys(text)
+        self.find_element_by_css_selector(sel).send_keys(text)
 
     def get(self, link):
         """ get link from current page """
         self.driver.execute_script(f'window.location.href = "{link}";')
 
-    def find_by_css_selector(self, sel):
-        return self.driver.find_element_by_css_selector(sel)
+    def implicitly_wait(self, time_):
+        self.driver.implicitly_wait(time_)
 
-    def find_s_by_css_selector(self, sel):
+    def wait_until(self, css_selector, timeout=20, selector_type='css', captcha=False):
+        if selector_type == 'css':
+            selector_type = By.CSS_SELECTOR
+        elif selector_type == 'id':
+            selector_type = By.ID
+        elif selector_type == 'xpath':
+            selector_type = By.XPATH
+        else:
+            raise ValueError("Incorrect selector type")
+
+        # CAPTCHA bypassing
+        if captcha:
+            if selector_type == 'css':
+                WebDriverWait(self.driver, timeout).until(
+                    ec.frame_to_be_available_and_switch_to_it((selector_type, css_selector))
+                )
+            elif selector_type == 'xpath':
+                WebDriverWait(self.driver, timeout).until(
+                    ec.element_to_be_clickable((selector_type, css_selector))
+                )
+        else:
+            WebDriverWait(self.driver, timeout).until(
+                ec.visibility_of_element_located((selector_type, css_selector))
+            )
+
+    def find_element_by_css_selector(self, sel):
+        try:
+            return self.driver.find_element_by_css_selector(sel)
+        except selenium.common.exceptions.NoSuchElementException:
+            return None
+
+    def find_by_id(self, id_):
+        try:
+            return self.driver.find_element_by_id(id_)
+        except selenium.common.exceptions.NoSuchElementException:
+            return None
+
+    def find_elements_by_css_selector(self, sel):
         return self.driver.find_elements_by_css_selector(sel)
 
     def click(self, sel):
         """ click on web element """
-        self.find_by_css_selector(sel).click()
+        self.find_element_by_css_selector(sel).click()
 
     def mouse_click(self):
         ActionChainsChild(self.driver).click().perform()
 
     def get_user_agent(self):
         return self.driver.execute_script("return navigator.userAgent;")
+
+    def execute_script(self, script, arg=None):
+        if arg is not None:
+            self.driver.execute_script(script, arg)
+        else:
+            self.driver.execute_script(script)
+
+    def switch_to_window(self, window_name):
+        self.driver.switch_to.window(window_name)
 
     def __del__(self):
         self.driver.quit()
@@ -301,8 +382,15 @@ class Driver:
 
 def main():
     driver = Driver(proxy=True)
-    driver.get('https://www.pinnacle.com/en/casino/games/live/roulette')
-    sleep(10)
+    driver.get('https://www1.pinnacle.com/en/casino/games/live/roulette')
+    proceed_link = driver.find_by_id("proceed-link")
+    start = time.time()
+    driver.implicitly_wait(5)
+    end = time.time()
+    print(f'time passed: {end - start}')
+    if proceed_link is not None:
+        proceed_link.click()
+    sleep(100)
 
 
 if __name__ == '__main__':
