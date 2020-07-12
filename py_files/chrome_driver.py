@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 from time import sleep
+from random import choice
 
 import selenium
 from fake_useragent import UserAgent
@@ -17,6 +18,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
 
+from py_files.cookie import Cookie
 from py_files.move_mouse import ActionChainsChild
 
 logging.basicConfig(
@@ -25,6 +27,7 @@ logging.basicConfig(
 )
 LOG = logging.getLogger(__name__)
 LOG.addHandler(logging.StreamHandler(sys.stdout))
+COOKIE = 'cookie.txt'
 
 
 class CustomUserAgent:
@@ -56,9 +59,9 @@ class CustomUserAgent:
         if self.latest_version:
             # browser = random.choice(self.ua.data_randomize)
             browser = 'chrome'
-            user_agent = sorted(
+            user_agent = choice(sorted(
                 self.ua.data_browsers[browser], key=lambda a: self.grp(self.browsers[browser], a)
-            )[-1]
+            )[-20:])
         else:
             user_agent = self.ua.random
         return user_agent
@@ -111,8 +114,8 @@ class CustomChromeOptions:
         chrome_options = webdriver.ChromeOptions()
 
         # USER_AGENT
-        user_agent = CustomUserAgent(user_agent=user_agent)
-        chrome_options.add_argument(f'--user-agent={user_agent.user_agent}')
+        # user_agent = CustomUserAgent(user_agent=user_agent)
+        # chrome_options.add_argument(f'--user-agent={user_agent.user_agent}')
 
         # PROXY
         proxy = CustomProxy(proxy=proxy, countries=countries, excluded_countries=excluded_countries)
@@ -211,6 +214,11 @@ class Driver:
 
         self.driver = driver
 
+        # LOADING COOKIE
+        self.cookie = Cookie(self.driver, COOKIE)
+        self.driver.get('https://www.google.com')
+        self.cookie.load_cookie()
+
     def send(self, sel, text):
         """ send value 'text' to web element defined by selector """
         self.find_element_by_css_selector(sel).send_keys(text)
@@ -222,7 +230,7 @@ class Driver:
     def implicitly_wait(self, time_):
         self.driver.implicitly_wait(time_)
 
-    def wait_until(self, css_selector, timeout=20, selector_type='css', captcha=False):
+    def wait_until(self, css_selector, timeout=60, selector_type='css', captcha=False):
         if selector_type == 'css':
             selector_type = By.CSS_SELECTOR
         elif selector_type == 'id':
@@ -243,9 +251,14 @@ class Driver:
                     ec.element_to_be_clickable((selector_type, css_selector))
                 )
         else:
-            WebDriverWait(self.driver, timeout).until(
-                ec.visibility_of_element_located((selector_type, css_selector))
-            )
+            if selector_type == 'xpath':
+                WebDriverWait(self.driver, timeout).until(
+                    ec.element_to_be_clickable((selector_type, css_selector))
+                )
+            else:
+                WebDriverWait(self.driver, timeout).until(
+                    ec.visibility_of_element_located((selector_type, css_selector))
+                )
 
     def find_element_by_css_selector(self, sel):
         try:
