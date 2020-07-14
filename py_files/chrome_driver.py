@@ -172,7 +172,7 @@ class Driver:
     def __init__(
             self, user_agent=None, proxy=None, hide=False, exclude_switches=False,
             exclude_photos=False, width=None, height=None, timeout=None, countries=None,
-            excluded_countries=None):
+            excluded_countries=None, **kwargs):
         self.driver = None
 
         # CHROME_OPTIONS

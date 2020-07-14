@@ -2,81 +2,139 @@ import os
 import time
 
 from pywinauto.application import Application
+from pywinauto.controls.common_controls import TabControlWrapper
 
 PATH_TO_EXE = os.path.join("lazy-z.com", "winnings", "winnings.exe")
 BUTTON = 'TBitBtn'
+RADIOBUTTON = 'TRadioButton'
+CHECKBOX = 'TCheckBox'
 EDIT = 'TMemo'
+TABSHEET = 'TTabSheet'
+PAGE_CONTROL = 'TPageControl'
 INPUT_FIELDS = ['Max', 'Min', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
+FIELDS = ['Останавливать игру при выигрыше более', 'Максимальная ставка',
+          'Максимально возможный выигрыш', 'Крутизна использованной прогрессии',
+          'Максимальное количество ОБРАБАТЫВАЕМЫХ чисел']
+
+TABLES = 0
+SETTINGS = 1
+METHODS = 2
+NUM_OF_TABS = 4
 
 
 class Calculator:
-    def __init__(self, path=PATH_TO_EXE):
-        self.app = Application().start(path)
+    def __init__(self, path=PATH_TO_EXE, **kwargs):
+        self.app = Application().start(path, timeout=60)
         self.path = path
         self.window = self.app.window(title="WINNINGS - 8")
-        self.children = self.window.children()
-        self.name_to_index, self.fell_dict, self.recommended_dict = self.parse_children()
-        # self.max_minus = -150
+        self.page_control = self.window.child_window(class_name=PAGE_CONTROL).wrapper_object()
+        self.name_to_child, self.fell_dict, self.recommended_dict, self.radio_buttons, self.checkboxes = self.parse_children()
+        self._init_parameters(**kwargs)
+
+    def _init_parameters(self, method='Игра с выборкой', stop_after_win=5000, max_bet=20,
+                         max_possible_win=1000, steepness_of_regression=1,
+                         max_num_of_processed_numbers=5, **kwargs):
+        assert method in self.radio_buttons
+        self.change_tab(METHODS)
+        self.radio_buttons[method].click()
+
+        self.change_tab(SETTINGS)
+        for field, num in zip(
+                FIELDS,
+                [stop_after_win, max_bet, max_possible_win, steepness_of_regression, max_num_of_processed_numbers]):
+            self.name_to_child[field].set_edit_text(num)
+
+    def change_tab(self, num):
+        TabControlWrapper(self.page_control).select(num)
 
     def parse_children(self):
-        name_to_index = {}
-        fell_dict = {}
-        recommended_dict = {}
+        name_to_child, fell_dict, recommended_dict, radio_buttons, checkboxes = [{} for _ in range(5)]
 
         names = INPUT_FIELDS[:]
         recommended = 37
 
-        for i, child in enumerate(self.children):
+        for child in self.window.children():
             element_info = child.element_info
             name = element_info.name
             class_name = element_info.class_name
             if class_name == BUTTON:
                 try:
-                    fell_dict[int(name)] = i
+                    fell_dict[int(name)] = child
                     continue
                 except ValueError:
                     pass
                 if name.strip() == 'Отменить спин':
-                    name_to_index['Отменить спин'] = i
+                    name_to_child['Отменить спин'] = child
                 if name == '' and recommended > 0:
-                    recommended_dict[recommended] = i
+                    recommended_dict[recommended] = child
                     recommended -= 1
             elif class_name == EDIT:
                 if names and ((not name) or (name == '0')) and child.is_visible():
                     name = names.pop(0)
-                    name_to_index[name] = i
+                    name_to_child[name.strip()] = child
+
         recommended_dict[0] = recommended_dict[37]
         del recommended_dict[37]
-        return name_to_index, fell_dict, recommended_dict
+
+        for j in range(NUM_OF_TABS):
+            self.change_tab(j)
+            time.sleep(0.5)
+
+        self.change_tab(METHODS)
+        was_first_500 = False
+        for child in self.window.children():
+            element_info = child.element_info
+            name = element_info.name
+            class_name = element_info.class_name
+            # print(f'{element_info.id}, "{name}", "{class_name}"')
+            if class_name == EDIT:
+                # HARDCODE
+                if not was_first_500 and name in ['500', '5000']:
+                    name_to_child[FIELDS[0]] = child
+                    was_first_500 = True
+                elif name == '20':
+                    name_to_child[FIELDS[1]] = child
+                elif name in ['500', '1000']:
+                    name_to_child[FIELDS[2]] = child
+                elif name in ['10', '1']:
+                    name_to_child[FIELDS[3]] = child
+                elif name in ['24', '4']:
+                    name_to_child[FIELDS[4]] = child
+            elif class_name == RADIOBUTTON:
+                radio_buttons[name.strip()] = child
+            elif class_name == CHECKBOX:
+                checkboxes[name.strip()] = child
+
+        return name_to_child, fell_dict, recommended_dict, radio_buttons, checkboxes
 
     def set_number(self, num):
         assert 0 <= num <= 36
-        self.children[self.fell_dict[num]].click()
+        self.fell_dict[num].click()
 
     def insert_number(self, field, num):
         """
         field: one of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
         """
-        assert field in INPUT_FIELDS, "should be one of " + INPUT_FIELDS
-        self.children[self.name_to_index[field]].set_edit_text(num)
+        assert field in INPUT_FIELDS, "should be one of " + str(INPUT_FIELDS)
+        self.name_to_child[field].set_edit_text(num)
 
-    def focus_cell(self, num):
-        self.children[num].set_focus()
+    def focus_cell(self, elem):
+        elem.set_focus()
 
     def get_field_value(self, field):
         """
         One of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
         """
-        assert field in INPUT_FIELDS, "should be one of " + INPUT_FIELDS
-        return int(self.children[self.name_to_index[field]].element_info.name or 0)
+        assert field in INPUT_FIELDS, "should be one of " + str(INPUT_FIELDS)
+        return int(self.name_to_child[field].element_info.name or 0)
 
     def undo_spin(self):
-        self.children[self.name_to_index['Отменить спин']].click()
+        self.name_to_child['Отменить спин'].click()
 
     def get_recommended_values(self):
         values = []
         for i in range(0, 36 + 1):
-            if self.children[self.recommended_dict[i]].element_info.name:
+            if self.recommended_dict[i].element_info.name:
                 values.append(i)
         return values
 
@@ -86,21 +144,22 @@ class Calculator:
 
 def main():
     app = Calculator()
+    app.change_tab(TABLES)
     app.set_number(5)
     app.set_number(16)
     app.set_number(0)
     app.set_number(36)
     app.undo_spin()
 
-    time.sleep(5)
+    time.sleep(10000)
+
     for name in INPUT_FIELDS:
         app.insert_number(name, 150)
-        print(f'{name}: {app.get_field_value(name)}')
     print(app.get_recommended_values())
-    # print(app.name_to_index)
-    # app.focus_cell(app.name_to_index['Min'])
+    # print(app.name_to_child)
+    # app.focus_cell(app.name_to_child['Min'])
     # time.sleep(2)
-    # app.focus_cell(app.name_to_index['Max'])
+    # app.focus_cell(app.name_to_child['Max'])
 
 
 # type_keys()

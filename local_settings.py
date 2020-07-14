@@ -1,10 +1,16 @@
 CREDENTIALS = {
     'pinnacle': {
         'site': 'https://www1.pinnacle.com/en/casino/games/live/roulette',
+        'login': 'https://www.pinnacle.com/en/account/login?appId=casino&returnPath=%2fen%2fcasino%2fgames%2flive%2froulette',
+        'login_check': '.account-menu-container',
         'email': 'happypuffin7@gmail.com',
         'user': 'dr770149',  # 'EG1245397'
         'password': 'Balbes!9896',  # '19821305aA'
         'current_balance': '[data-role="balance-label__value"]',
+        'video_quality': '[data-role="select-option"]',
+        'cross': '[data-role="cross"]',
+        'first_stripe': '[data-role="first-stripe"]',
+        'second_stripe': '[data-role="second-stripe"]',
         # {
         #     'american roulette': '[data-role="balance-label__value"]',
         #     'roulette russian': '[data-e2e="balance-value"]',

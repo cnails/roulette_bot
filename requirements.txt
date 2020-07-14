@@ -7,3 +7,5 @@ pywinauto==0.6.8
 pathlib==1.0.1
 proxybroker==0.3.2
 asyncio==3.4.3
+schedule==0.6.0
+pysimplegui==4.24.0
