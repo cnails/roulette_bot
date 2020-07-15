@@ -1,3 +1,4 @@
+import functools
 import os
 import time
 
@@ -22,6 +23,26 @@ METHODS = 2
 NUM_OF_TABS = 4
 
 
+def activate_window(func):
+    @functools.wraps(func)
+    def wrapper_decorator(*args, **kwargs):
+        args[0].app.top_window().set_focus()
+        value = func(*args, **kwargs)
+        return value
+
+    return wrapper_decorator
+
+
+# def for_all_methods(decorator):
+#     def decorate(cls):
+#         for attr in cls.__dict__:
+#             if callable(getattr(cls, attr)):
+#                 setattr(cls, attr, decorator(getattr(cls, attr)))
+#         return cls
+#     return decorate
+
+
+# @for_all_methods(activate_window)
 class Calculator:
     def __init__(self, path=PATH_TO_EXE, **kwargs):
         self.app = Application().start(path, timeout=60)
@@ -31,6 +52,7 @@ class Calculator:
         self.name_to_child, self.fell_dict, self.recommended_dict, self.radio_buttons, self.checkboxes = self.parse_children()
         self._init_parameters(**kwargs)
 
+    @activate_window
     def _init_parameters(self, method='Игра с выборкой', stop_after_win=5000, max_bet=20,
                          max_possible_win=1000, steepness_of_regression=1,
                          max_num_of_processed_numbers=5, **kwargs):
@@ -44,9 +66,11 @@ class Calculator:
                 [stop_after_win, max_bet, max_possible_win, steepness_of_regression, max_num_of_processed_numbers]):
             self.name_to_child[field].set_edit_text(num)
 
+    @activate_window
     def change_tab(self, num):
         TabControlWrapper(self.page_control).select(num)
 
+    @activate_window
     def parse_children(self):
         name_to_child, fell_dict, recommended_dict, radio_buttons, checkboxes = [{} for _ in range(5)]
 
@@ -107,10 +131,12 @@ class Calculator:
 
         return name_to_child, fell_dict, recommended_dict, radio_buttons, checkboxes
 
+    @activate_window
     def set_number(self, num):
         assert 0 <= num <= 36
         self.fell_dict[num].click()
 
+    @activate_window
     def insert_number(self, field, num):
         """
         field: one of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
@@ -118,9 +144,11 @@ class Calculator:
         assert field in INPUT_FIELDS, "should be one of " + str(INPUT_FIELDS)
         self.name_to_child[field].set_edit_text(num)
 
+    @activate_window
     def focus_cell(self, elem):
         elem.set_focus()
 
+    @activate_window
     def get_field_value(self, field):
         """
         One of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
@@ -128,9 +156,11 @@ class Calculator:
         assert field in INPUT_FIELDS, "should be one of " + str(INPUT_FIELDS)
         return int(self.name_to_child[field].element_info.name or 0)
 
+    @activate_window
     def undo_spin(self):
         self.name_to_child['Отменить спин'].click()
 
+    @activate_window
     def get_recommended_values(self):
         values = []
         for i in range(0, 36 + 1):
@@ -139,6 +169,7 @@ class Calculator:
         return values
 
     def __del__(self):
+        self.window.close()
         self.app.kill()
 
 

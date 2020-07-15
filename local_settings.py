@@ -33,7 +33,7 @@ CREDENTIALS = {
         'live_roulette_lobby': 'live roulette lobby',
         'live_roulette_tables': 'div[data-role="table-name"]',
         'status_text': 'div[data-role="status-text"]',
-        'radial_chips': '[class^="chips"] li',
+        'radial_chips': '[class^="chips"] li[class^="chip"]',
     },
     'williamhill': {
         'site': 'https://livecasino.williamhill.com/en-gb/',

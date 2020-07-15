@@ -22,9 +22,13 @@ METHOD = 'method'
 def run_interface():
     layout = [[sg.Text('○ Настройки бота', background_color='black', text_color='white')],
               [sg.Text('Сайт'), sg.InputOptionMenu(('pinnacle',), key='site')],
+              [sg.Text('Количство столов'),
+               sg.Spin(values=[i for i in range(1, 4)], initial_value=1, key='num_of_tables')],
+              [sg.Checkbox('Играть на реальные деньги?', default=False, key='play_real')],
+              [sg.Checkbox('Нужно ли повторно запускать бота?', default=True, key='repeat_launch')],
               [sg.Text('Правило останова'),
                sg.InputOptionMenu(
-                   ('Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний'),
+                   ('Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет'),
                    key='rule_break'
                ),
                sg.Spin(values=[i for i in range(1, 100000)], initial_value=10, key='rule_break_value')],
@@ -43,9 +47,7 @@ def run_interface():
               [sg.Text()],
               [sg.Button(LAUNCH), sg.Button(EXIT)]]
 
-    # Create the Window
     window = sg.Window("Игрок в рулетки", layout)
-    # Event Loop to process "events" and get the "values" of the inputs
 
     while True:
         event, values = window.read()
@@ -60,8 +62,9 @@ def run_interface():
                 values[FIELDS_TO_EN[elem]] = values[elem]
                 del values[elem]
             print(f'values: {values}')
-            browser = Browser(**values)
+            browser = Browser(**values)  # , hide=True
             browser.run_roulettes()
+            break
 
     window.close()
 
