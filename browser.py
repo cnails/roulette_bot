@@ -222,8 +222,8 @@ class Tab(AbstractTab):
                 for _ in range(len(recommended_numbers)):
                     undo_button.click()
 
-    # def __del__(self):
-    #     self.calculator.app.kill()
+    def __del__(self):
+        self.calculator.app.kill()
 
 
 class Browser:
@@ -253,6 +253,7 @@ class Browser:
         tabs = []
         j = 0
         for i, table in enumerate(tables):
+            self.driver.driver.maximize_window()
             if self.credentials['live_roulette_lobby'] == table_names[i]:
                 self.sleep(2.5)
                 self.driver.execute_script("arguments[0].scrollIntoView();", table)

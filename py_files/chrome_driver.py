@@ -12,7 +12,7 @@ from random import choice
 
 import selenium
 from fake_useragent import UserAgent
-from proxybroker import Broker
+# from proxybroker import Broker
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
@@ -85,17 +85,18 @@ class CustomProxy:
         self.proxy_server = proxy_server
 
     def get_proxy(self, countries=None, excluded_countries=None):
-        proxies = asyncio.Queue()
-        broker = Broker(proxies)
-
-        countries = countries or frozenset()
-        excluded_countries = excluded_countries or {'RU'}
-        countries = list(countries - excluded_countries)
-        tasks = asyncio.gather(
-            broker.find(types=['HTTP', 'HTTPS'], countries=countries, limit=1),
-            self.__async__get_proxy(proxies)
-        )
-        return self.loop.run_until_complete(tasks)[-1]
+        pass
+        # proxies = asyncio.Queue()
+        # broker = Broker(proxies)
+        #
+        # countries = countries or frozenset()
+        # excluded_countries = excluded_countries or {'RU'}
+        # countries = list(countries - excluded_countries)
+        # tasks = asyncio.gather(
+        #     broker.find(types=['HTTP', 'HTTPS'], countries=countries, limit=1),
+        #     self.__async__get_proxy(proxies)
+        # )
+        # return self.loop.run_until_complete(tasks)[-1]
 
     @staticmethod
     async def __async__get_proxy(proxies):
@@ -194,10 +195,10 @@ class Driver:
             options=chrome_options.chrome_options,
         )
 
-        # WINDOW_SIZE
-        width = width or random.randint(900, 1400)
-        height = height or random.randint(900, 1400)
-        driver.set_window_size(width, height)
+        # # WINDOW_SIZE
+        # width = width or random.randint(900, 1400)
+        # height = height or random.randint(900, 1400)
+        # driver.set_window_size(width, height)
 
         # ?
         driver.execute_cdp_cmd(

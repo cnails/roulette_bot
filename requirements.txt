@@ -9,3 +9,5 @@ proxybroker==0.3.2
 asyncio==3.4.3
 schedule==0.6.0
 pysimplegui==4.24.0
+PyInstaller==3.6
+

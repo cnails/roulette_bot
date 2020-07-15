@@ -28,6 +28,7 @@ def activate_window(func):
     def wrapper_decorator(*args, **kwargs):
         args[0].app.top_window().set_focus()
         value = func(*args, **kwargs)
+        # args[0].app.top_window().minimize()
         return value
 
     return wrapper_decorator
@@ -52,7 +53,7 @@ class Calculator:
         self.name_to_child, self.fell_dict, self.recommended_dict, self.radio_buttons, self.checkboxes = self.parse_children()
         self._init_parameters(**kwargs)
 
-    @activate_window
+    # @activate_window
     def _init_parameters(self, method='Игра с выборкой', stop_after_win=5000, max_bet=20,
                          max_possible_win=1000, steepness_of_regression=1,
                          max_num_of_processed_numbers=5, **kwargs):
@@ -66,11 +67,11 @@ class Calculator:
                 [stop_after_win, max_bet, max_possible_win, steepness_of_regression, max_num_of_processed_numbers]):
             self.name_to_child[field].set_edit_text(num)
 
-    @activate_window
+    # @activate_window
     def change_tab(self, num):
         TabControlWrapper(self.page_control).select(num)
 
-    @activate_window
+    # @activate_window
     def parse_children(self):
         name_to_child, fell_dict, recommended_dict, radio_buttons, checkboxes = [{} for _ in range(5)]
 
@@ -136,7 +137,7 @@ class Calculator:
         assert 0 <= num <= 36
         self.fell_dict[num].click()
 
-    @activate_window
+    # @activate_window
     def insert_number(self, field, num):
         """
         field: one of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
@@ -148,7 +149,7 @@ class Calculator:
     def focus_cell(self, elem):
         elem.set_focus()
 
-    @activate_window
+    # @activate_window
     def get_field_value(self, field):
         """
         One of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
@@ -160,7 +161,7 @@ class Calculator:
     def undo_spin(self):
         self.name_to_child['Отменить спин'].click()
 
-    @activate_window
+    # @activate_window
     def get_recommended_values(self):
         values = []
         for i in range(0, 36 + 1):
