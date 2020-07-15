@@ -97,8 +97,10 @@ class Tab(AbstractTab):
 
         # CONDITIONS
         self.rule_break = kwargs['rule_break']
-        self.rule_break_value = kwargs['rule_break_value']
-        self.repeat_launch = kwargs['repeat_launch']
+        self.rule_break_second = kwargs['rule_break_second']
+        self.rule_break_value = kwargs['rule_break_value_first']
+        self.rule_break_value_second = kwargs['rule_break_value_second']
+        self.num_of_repetitions = kwargs['num_of_repetitions']
         self.play_real = kwargs['play_real']
         self.num_of_fails = 0
         self.prev_prediction = set()
@@ -182,9 +184,12 @@ class Tab(AbstractTab):
             if number not in self.prev_prediction:
                 self.num_of_fails += 1
             else:
-                if self.repeat_launch:
+                if self.num_of_repetitions:
+                    self.rule_break_value = self.rule_break_value_second
+                    self.rule_break = self.rule_break_second
                     self.turn_on = True
                     self.num_of_fails = 0
+                    self.num_of_repetitions -= 1
 
         self.calculator.set_number(number)
 
@@ -222,8 +227,8 @@ class Tab(AbstractTab):
                 for _ in range(len(recommended_numbers)):
                     undo_button.click()
 
-    def __del__(self):
-        self.calculator.app.kill()
+    # def __del__(self):
+    #     self.calculator.app.kill()
 
 
 class Browser:

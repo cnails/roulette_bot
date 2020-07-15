@@ -2,6 +2,8 @@ import functools
 import os
 import time
 
+import win32gui, win32com.client
+
 from pywinauto.application import Application
 from pywinauto.controls.common_controls import TabControlWrapper
 
@@ -26,7 +28,11 @@ NUM_OF_TABS = 4
 def activate_window(func):
     @functools.wraps(func)
     def wrapper_decorator(*args, **kwargs):
-        args[0].app.top_window().set_focus()
+        # shell = win32com.client.Dispatch("WScript.Shell")
+        # shell.SendKeys('%')
+        # win32gui.SetForegroundWindow(args[0].window_int)
+        window = args[0].app.top_window()
+        window.set_focus()
         value = func(*args, **kwargs)
         # args[0].app.top_window().minimize()
         return value
@@ -34,44 +40,49 @@ def activate_window(func):
     return wrapper_decorator
 
 
-# def for_all_methods(decorator):
-#     def decorate(cls):
-#         for attr in cls.__dict__:
-#             if callable(getattr(cls, attr)):
-#                 setattr(cls, attr, decorator(getattr(cls, attr)))
-#         return cls
-#     return decorate
+def activate_tab(num):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper_decorator(*args, **kwargs):
+            args[0].change_tab(num)
+            value = func(*args, **kwargs)
+            # args[0].app.top_window().minimize()
+            return value
+
+        return wrapper_decorator
+
+    return decorator
 
 
-# @for_all_methods(activate_window)
 class Calculator:
     def __init__(self, path=PATH_TO_EXE, **kwargs):
         self.app = Application().start(path, timeout=60)
         self.path = path
         self.window = self.app.window(title="WINNINGS - 8")
+        self.window_int = win32gui.GetForegroundWindow()
         self.page_control = self.window.child_window(class_name=PAGE_CONTROL).wrapper_object()
         self.name_to_child, self.fell_dict, self.recommended_dict, self.radio_buttons, self.checkboxes = self.parse_children()
-        self._init_parameters(**kwargs)
+        # self._init_parameters(**kwargs)
 
     # @activate_window
-    def _init_parameters(self, method='Игра с выборкой', stop_after_win=5000, max_bet=20,
-                         max_possible_win=1000, steepness_of_regression=1,
-                         max_num_of_processed_numbers=5, **kwargs):
-        assert method in self.radio_buttons
-        self.change_tab(METHODS)
-        self.radio_buttons[method].click()
+    # def _init_parameters(self, method='Игра с выборкой', stop_after_win=5000, max_bet=20,
+    #                      max_possible_win=1000, steepness_of_regression=1,
+    #                      max_num_of_processed_numbers=5, **kwargs):
+    #     assert method in self.radio_buttons
+    #     self.change_tab(METHODS)
+    #     self.radio_buttons[method].click()
+    #
+    #     self.change_tab(SETTINGS)
+    #     for field, num in zip(
+    #             FIELDS,
+    #             [stop_after_win, max_bet, max_possible_win, steepness_of_regression, max_num_of_processed_numbers]):
+    #         self.name_to_child[field].set_edit_text(num)
 
-        self.change_tab(SETTINGS)
-        for field, num in zip(
-                FIELDS,
-                [stop_after_win, max_bet, max_possible_win, steepness_of_regression, max_num_of_processed_numbers]):
-            self.name_to_child[field].set_edit_text(num)
-
-    # @activate_window
+    @activate_window
     def change_tab(self, num):
         TabControlWrapper(self.page_control).select(num)
 
-    # @activate_window
+    @activate_window
     def parse_children(self):
         name_to_child, fell_dict, recommended_dict, radio_buttons, checkboxes = [{} for _ in range(5)]
 
@@ -133,11 +144,13 @@ class Calculator:
         return name_to_child, fell_dict, recommended_dict, radio_buttons, checkboxes
 
     @activate_window
+    @activate_tab(TABLES)
     def set_number(self, num):
         assert 0 <= num <= 36
         self.fell_dict[num].click()
 
-    # @activate_window
+    @activate_window
+    @activate_tab(TABLES)
     def insert_number(self, field, num):
         """
         field: one of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
@@ -149,7 +162,8 @@ class Calculator:
     def focus_cell(self, elem):
         elem.set_focus()
 
-    # @activate_window
+    @activate_window
+    @activate_tab(TABLES)
     def get_field_value(self, field):
         """
         One of ['Min', 'Max', 'Стоит на поле', 'Суммарный баланс', 'Баланс в этой игре', 'Ставка']
@@ -158,10 +172,12 @@ class Calculator:
         return int(self.name_to_child[field].element_info.name or 0)
 
     @activate_window
+    @activate_tab(TABLES)
     def undo_spin(self):
         self.name_to_child['Отменить спин'].click()
 
-    # @activate_window
+    @activate_window
+    @activate_tab(TABLES)
     def get_recommended_values(self):
         values = []
         for i in range(0, 36 + 1):
@@ -169,9 +185,9 @@ class Calculator:
                 values.append(i)
         return values
 
-    def __del__(self):
-        self.window.close()
-        self.app.kill()
+    # def __del__(self):
+    #     self.window.close()
+    #     self.app.kill()
 
 
 def main():

@@ -22,28 +22,23 @@ METHOD = 'method'
 def run_interface():
     layout = [[sg.Text('○ Настройки бота', background_color='black', text_color='white')],
               [sg.Text('Сайт'), sg.InputOptionMenu(('pinnacle',), key='site')],
-              [sg.Text('Количство столов'),
+              [sg.Text('Количество столов'),
                sg.Spin(values=[i for i in range(1, 4)], initial_value=1, key='num_of_tables')],
               [sg.Checkbox('Играть на реальные деньги?', default=False, key='play_real')],
-              [sg.Checkbox('Нужно ли повторно запускать бота?', default=True, key='repeat_launch')],
-              [sg.Text('Правило останова'),
+              [sg.Text('Количество повторных запусков бота'),
+               sg.Spin(values=[i for i in range(0, 100000)], initial_value=10, key='num_of_repetitions')],
+              [sg.Text('Первое правило останова'),
                sg.InputOptionMenu(
                    ('Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет'),
                    key='rule_break'
                ),
-               sg.Spin(values=[i for i in range(1, 100000)], initial_value=10, key='rule_break_value')],
-              [sg.Text()],
-              [sg.Text('○ Настройки winnings-а', background_color='black', text_color='white')],
-              *[[sg.Text(name),
-                 sg.Spin(values=[i for i in range(0, 100000)], initial_value=default_value, key=name)]
-                for name, default_value in zip(FIELDS, DEFAULTS)],
-              [sg.Text('Методика'),
-               sg.InputOptionMenu((
-                   'Игра с выборкой', 'Игра без выборки', 'Система PEER', 'Игра на сикслайны',
-                   'Выжидание', 'Сектора', 'Epocal Storm Dinamic', 'Любимые номера',
-                   'Система анти review', 'Использовать собственную систему',
-                   'Без ставок, только ввести статистику'
-               ), key='Методика')],
+               sg.Spin(values=[i for i in range(1, 100000)], initial_value=10, key='rule_break_value_first')],
+              [sg.Text('Последующие правила останова'),
+               sg.InputOptionMenu(
+                   ('Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет'),
+                   key='rule_break_second'
+               ),
+               sg.Spin(values=[i for i in range(1, 100000)], initial_value=10, key='rule_break_value_second')],
               [sg.Text()],
               [sg.Button(LAUNCH), sg.Button(EXIT)]]
 
