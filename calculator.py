@@ -32,7 +32,12 @@ def activate_window(func):
         # shell.SendKeys('%')
         # win32gui.SetForegroundWindow(args[0].window_int)
         window = args[0].app.top_window()
-        window.set_focus()
+        while True:
+            try:
+                window.set_focus()
+                break
+            except Exception:
+                pass
         value = func(*args, **kwargs)
         # window.minimize()
         return value
@@ -56,7 +61,12 @@ def activate_tab(num):
 
 class Calculator:
     def __init__(self, path=PATH_TO_EXE, **kwargs):
-        self.app = Application().start(path, timeout=60)
+        while True:
+            try:
+                self.app = Application().start(path, timeout=60)
+                break
+            except Exception:
+                pass
         self.path = path
         self.window = self.app.window(title="WINNINGS - 8")
         self.window_int = win32gui.GetForegroundWindow()

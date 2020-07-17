@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
 
 from browser import Browser
+from local_settings import PROXY
 
 FIELDS = ['Останавливать игру при выигрыше более', 'Максимальная ставка',
           'Максимально возможный выигрыш', 'Крутизна использованной прогрессии',
@@ -40,6 +41,7 @@ def run_interface():
                    key='rule_break_second'
                ),
                sg.Spin(values=[i for i in range(1, 100000)], initial_value=10, key='rule_break_value_second')],
+              [sg.Checkbox('Строгое соблюдение правила останова?', default=False, key='rule_break_strict')],
               [sg.Text()],
               [sg.Button(LAUNCH), sg.Button(EXIT)]]
 
@@ -59,7 +61,7 @@ def run_interface():
                 del values[elem]
             print(f'values: {values}')
             if values['proxy']:
-                values['proxy'] = 'https://sansay:rfgrfgerf@179.61.188.91:45785/'
+                values['proxy'] = PROXY
             else:
                 values['proxy'] = None
             browser = Browser(**values)  # , hide=True

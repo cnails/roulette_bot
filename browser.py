@@ -108,6 +108,7 @@ class Tab(AbstractTab):
         self.rule_break_second = kwargs['rule_break_second']
         self.rule_break_value = kwargs['rule_break_value_first']
         self.rule_break_value_second = kwargs['rule_break_value_second']
+        self.rule_break_strict = kwargs['rule_break_strict']
         self.num_of_repetitions = kwargs['num_of_repetitions']
         self.play_real = kwargs['play_real']
         self.num_of_fails = 0
@@ -210,7 +211,11 @@ class Tab(AbstractTab):
             max_ = self.calculator.get_field_value('Max')
             balance = self.calculator.get_field_value('Суммарный баланс')
             if max_ - balance >= self.rule_break_value:
-                self.turn_on = False
+                if not self.rule_break_strict:
+                    if number not in self.prev_prediction:
+                        self.turn_on = False
+                else:
+                    self.turn_on = False
         elif self.rule_break == RULE_BREAKS[1]:
             if self.num_of_fails >= self.rule_break_value:
                 self.turn_on = False
@@ -325,7 +330,7 @@ class Browser:
         if self.driver.find_element_by_css_selector(self.credentials['login_check']) is None:
             self.driver.get(self.credentials['login'])
             if self.credentials['manual_login']:
-                self.driver.wait_until(self.credentials['login_check'], timeout=180)
+                self.driver.wait_until(self.credentials['login_check'], timeout=300)
                 self.driver.cookie.save_cookie()
             else:
                 self.driver.wait_until('[name="username"]')

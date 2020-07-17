@@ -1,3 +1,7 @@
+# SECRET CONSTANTS
+
+PROXY = 'https://sansay:rfgrfgerf@179.61.188.91:45785/'
+
 CREDENTIALS = {
     'pinnacle': {
         'site': 'https://www1.pinnacle.com/en/casino/games/live/roulette',
