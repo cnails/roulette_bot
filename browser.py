@@ -11,6 +11,7 @@ from py_files.chrome_driver import Driver
 
 SITES = sorted(CREDENTIALS)
 PLACE_YOUR_BETS = 'PLACE YOUR BETS'
+BETS_CLOSING = 'BETS CLOSING'
 RULE_BREAKS = [
     'Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет'
 ]
@@ -63,8 +64,15 @@ class TextToChange:
         self.driver = driver
 
     def __call__(self):
-        actual_text = _find_element(self.driver, self.locator).text
-        if actual_text != self.text and actual_text == PLACE_YOUR_BETS:
+        # self.driver.wait_until(self.locator[-1])  # NB: check if there is a problem
+        while True:
+            try:
+                actual_text = _find_element(self.driver.driver, self.locator).text
+                break
+            except Exception:
+                pass
+        if actual_text != self.text and actual_text in [PLACE_YOUR_BETS, BETS_CLOSING] \
+                and not (actual_text == BETS_CLOSING and self.text == PLACE_YOUR_BETS):
             return True
         self.text = actual_text
         return False
@@ -88,7 +96,7 @@ class Tab(AbstractTab):
         self.calculator = Calculator(**kwargs)
         self.calculator.change_tab(TABLES)
         self.text_to_change = TextToChange(
-            (By.CSS_SELECTOR, self.credentials['status_text']), self.driver.driver, PLACE_YOUR_BETS)
+            (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, PLACE_YOUR_BETS)
 
         # SET VIDEO SETTINGS
         self._set_video_settings()
@@ -109,13 +117,16 @@ class Tab(AbstractTab):
     @activate_tab
     def _set_video_settings(self):
         with Iframe(self.driver):
-            time.sleep(0.5)
+            self.driver.wait_until('[data-role="settings-button"]')
             self.driver.find_element_by_css_selector('[data-role="settings-button"]').click()
             time.sleep(0.5)
+            self.driver.wait_until('[data-role="tab-settings.video"]')
             self.driver.find_element_by_css_selector('[data-role="tab-settings.video"]').click()
             time.sleep(0.5)
+            self.driver.wait_until('[data-role="select-option"]')
             self.driver.find_elements_by_css_selector('[data-role="select-option"]')[-1].click()
             time.sleep(0.5)
+            self.driver.wait_until('[data-role="window-preferences_close"]')
             self.driver.find_element_by_css_selector('[data-role="window-preferences_close"]').click()
             time.sleep(0.5)
             for cross in self.driver.find_elements_by_css_selector(self.credentials['cross']):
@@ -178,18 +189,17 @@ class Tab(AbstractTab):
             if not self.text_to_change():
                 return
             self.text_to_change = TextToChange(
-                (By.CSS_SELECTOR, self.credentials['status_text']), self.driver.driver, PLACE_YOUR_BETS)
+                (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, PLACE_YOUR_BETS)
         number = self.get_recent_number()
-        if self.prev_prediction:
-            if number not in self.prev_prediction:
-                self.num_of_fails += 1
-            else:
-                if self.num_of_repetitions:
-                    self.rule_break_value = self.rule_break_value_second
-                    self.rule_break = self.rule_break_second
-                    self.turn_on = True
-                    self.num_of_fails = 0
-                    self.num_of_repetitions -= 1
+        if number not in self.prev_prediction:
+            self.num_of_fails += 1
+        else:
+            if self.num_of_repetitions and self.rule_break != RULE_BREAKS[2]:
+                self.rule_break_value = self.rule_break_value_second
+                self.rule_break = self.rule_break_second
+                self.turn_on = True
+                self.num_of_fails = 0
+                self.num_of_repetitions -= 1
 
         self.calculator.set_number(number)
 
@@ -277,6 +287,7 @@ class Browser:
                     self.driver.execute_script(f"window.open('{self.credentials['site']}', '{j}');")
                     self.driver.driver.switch_to.window(f'{j}')
                     self.sleep(0.5)
+                    self.driver.wait_until(self.credentials['tables'])
 
                     tables_inner = self.driver.find_elements_by_css_selector(self.credentials['tables'])
                     self.driver.execute_script("arguments[0].scrollIntoView();", tables_inner[0])
@@ -336,7 +347,7 @@ class Browser:
     def run_roulettes(self):
         while True:
             for tab in self.tabs:
-                time.sleep(0.25)
+                time.sleep(0.2)
                 # print(tab.num_of_fails, tab.prev_prediction, tab.turn_on)
                 tab.make_bets()
 

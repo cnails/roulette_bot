@@ -6,9 +6,11 @@ import random
 import re
 import sys
 import time
+import zipfile
 from pathlib import Path
 from time import sleep
 from random import choice
+from yarl import URL
 
 import selenium
 from fake_useragent import UserAgent
@@ -28,6 +30,57 @@ logging.basicConfig(
 LOG = logging.getLogger(__name__)
 LOG.addHandler(logging.StreamHandler(sys.stdout))
 COOKIE = 'cookie.txt'
+MANIFEST_JSON = """
+{
+    "version": "1.0.0",
+    "manifest_version": 2,
+    "name": "Chrome Proxy",
+    "permissions": [
+        "proxy",
+        "tabs",
+        "unlimitedStorage",
+        "storage",
+        "<all_urls>",
+        "webRequest",
+        "webRequestBlocking"
+    ],
+    "background": {
+        "scripts": ["background.js"]
+    },
+    "minimum_chrome_version":"22.0.0"
+}
+"""
+BACKGROUND_JS = """
+var config = {
+        mode: "fixed_servers",
+        rules: {
+        singleProxy: {
+            scheme: "http",
+            host: "%s",
+            port: parseInt(%s)
+        },
+        bypassList: ["localhost"]
+        }
+    };
+
+chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+
+function callbackFn(details) {
+    return {
+        authCredentials: {
+            username: "%s",
+            password: "%s"
+        }
+    };
+}
+
+chrome.webRequest.onAuthRequired.addListener(
+            callbackFn,
+            {urls: ["<all_urls>"]},
+            ['blocking']
+);
+"""
+PLUGIN_FILE = 'proxy_auth_plugin.zip'
 
 
 class CustomUserAgent:
@@ -72,41 +125,46 @@ class CustomUserAgent:
         return r.group(0) if r else '&'
 
 
-class CustomProxy:
-    def __init__(self, proxy=None, countries=None, excluded_countries=None):
-        self.loop = asyncio.get_event_loop()
-        proxy_server = None
-        if proxy is not None:
-            if proxy is True:
-                proxy = self.get_proxy(countries=countries, excluded_countries=excluded_countries)
-            proxy_server = proxy.split("://")[-1]
 
-        LOG.info(f'proxy-server: {proxy_server}')
-        self.proxy_server = proxy_server
-
-    def get_proxy(self, countries=None, excluded_countries=None):
-        pass
-        # proxies = asyncio.Queue()
-        # broker = Broker(proxies)
-        #
-        # countries = countries or frozenset()
-        # excluded_countries = excluded_countries or {'RU'}
-        # countries = list(countries - excluded_countries)
-        # tasks = asyncio.gather(
-        #     broker.find(types=['HTTP', 'HTTPS'], countries=countries, limit=1),
-        #     self.__async__get_proxy(proxies)
-        # )
-        # return self.loop.run_until_complete(tasks)[-1]
-
-    @staticmethod
-    async def __async__get_proxy(proxies):
-        while True:
-            proxy = await proxies.get()
-            if proxy is not None:
-                proto = 'https' if 'HTTPS' in proxy.types else 'http'
-                proxy = f'{proto}://{proxy.host}:{proxy.port}'
-                LOG.info(f'Found proxy: {proxy}')
-                return proxy
+# class CustomProxy:
+#     def __init__(self, proxy=None, countries=None, excluded_countries=None):
+#         self.loop = asyncio.get_event_loop()
+#         proxy_server = None
+#         if proxy is not None:
+#             if proxy is True:
+#                 proxy = self.get_proxy(countries=countries, excluded_countries=excluded_countries)
+#             url = URL(proxy)
+#             if url.user:  # there should be authentication
+#
+#                 pass
+#             else:
+#                 proxy_server = proxy.split("://")[-1]
+#                 LOG.info(f'proxy-server: {proxy_server}')
+#                 self.proxy_server = proxy_server
+#
+#     def get_proxy(self, countries=None, excluded_countries=None):
+#         pass
+#         # proxies = asyncio.Queue()
+#         # broker = Broker(proxies)
+#         #
+#         # countries = countries or frozenset()
+#         # excluded_countries = excluded_countries or {'RU'}
+#         # countries = list(countries - excluded_countries)
+#         # tasks = asyncio.gather(
+#         #     broker.find(types=['HTTP', 'HTTPS'], countries=countries, limit=1),
+#         #     self.__async__get_proxy(proxies)
+#         # )
+#         # return self.loop.run_until_complete(tasks)[-1]
+#
+#     @staticmethod
+#     async def __async__get_proxy(proxies):
+#         while True:
+#             proxy = await proxies.get()
+#             if proxy is not None:
+#                 proto = 'https' if 'HTTPS' in proxy.types else 'http'
+#                 proxy = f'{proto}://{proxy.host}:{proxy.port}'
+#                 LOG.info(f'Found proxy: {proxy}')
+#                 return proxy
 
 
 class CustomChromeOptions:
@@ -119,9 +177,20 @@ class CustomChromeOptions:
         # chrome_options.add_argument(f'--user-agent={user_agent.user_agent}')
 
         # PROXY
-        proxy = CustomProxy(proxy=proxy, countries=countries, excluded_countries=excluded_countries)
-        if proxy.proxy_server is not None:
-            chrome_options.add_argument(f'--proxy-server={proxy.proxy_server}')
+        # proxy = CustomProxy(proxy=proxy, countries=countries, excluded_countries=excluded_countries)
+        # if proxy.proxy_server is not None:
+        #     chrome_options.add_argument(f'--proxy-server={proxy.proxy_server}')
+        if proxy is not None:
+            url = URL(proxy)
+            if url.user:  # there should be authentication
+                with zipfile.ZipFile(PLUGIN_FILE, 'w') as zp:
+                    zp.writestr("manifest.json", MANIFEST_JSON)
+                    zp.writestr("background.js", BACKGROUND_JS % (url.host, url.port, url.user, url.password))
+                chrome_options.add_extension(PLUGIN_FILE)
+            else:
+                proxy_server = proxy.split("://")[-1]
+                LOG.info(f'proxy-server: {proxy_server}')
+                chrome_options.add_argument(f'--proxy-server={proxy_server}')
 
         # EXCLUDE_SWITCHES
         if exclude_switches:
@@ -218,7 +287,10 @@ class Driver:
         # LOADING COOKIE
         self.cookie = Cookie(self.driver, COOKIE)
         self.driver.get('https://www.google.com')
-        self.cookie.load_cookie()
+        try:
+            self.cookie.load_cookie()
+        except Exception:
+            pass
 
     def send(self, sel, text):
         """ send value 'text' to web element defined by selector """
@@ -395,7 +467,7 @@ class Driver:
 
 
 def main():
-    driver = Driver(proxy=True)
+    driver = Driver(proxy='https://179.61.188.91:45785')
     driver.get('https://www1.pinnacle.com/en/casino/games/live/roulette')
     proceed_link = driver.find_by_id("proceed-link")
     start = time.time()

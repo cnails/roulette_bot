@@ -24,15 +24,15 @@ def run_interface():
               [sg.Text('Сайт'), sg.InputOptionMenu(('pinnacle',), key='site')],
               [sg.Text('Количество столов'),
                sg.Spin(values=[i for i in range(1, 4)], initial_value=1, key='num_of_tables')],
-              [sg.Checkbox('Играть на реальные деньги?', default=False, key='play_real')],
+              [sg.Checkbox('Играть на реальные деньги?', default=True, key='play_real')],
               [sg.Text('Количество повторных запусков бота'),
-               sg.Spin(values=[i for i in range(0, 100000)], initial_value=10, key='num_of_repetitions')],
+               sg.Spin(values=[i for i in range(0, 100000)], initial_value=1, key='num_of_repetitions')],
               [sg.Text('Первое правило останова'),
                sg.InputOptionMenu(
                    ('Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет'),
                    key='rule_break'
                ),
-               sg.Spin(values=[i for i in range(1, 100000)], initial_value=10, key='rule_break_value_first')],
+               sg.Spin(values=[i for i in range(1, 100000)], initial_value=50, key='rule_break_value_first')],
               [sg.Text('Последующие правила останова'),
                sg.InputOptionMenu(
                    ('Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет'),
@@ -57,7 +57,9 @@ def run_interface():
                 values[FIELDS_TO_EN[elem]] = values[elem]
                 del values[elem]
             print(f'values: {values}')
-            browser = Browser(**values)  # , hide=True
+            browser = Browser(
+                proxy='https://sansay:rfgrfgerf@179.61.188.91:45785/', **values
+            )  # , hide=True
             browser.run_roulettes()
             break
 

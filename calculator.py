@@ -34,7 +34,7 @@ def activate_window(func):
         window = args[0].app.top_window()
         window.set_focus()
         value = func(*args, **kwargs)
-        # args[0].app.top_window().minimize()
+        # window.minimize()
         return value
 
     return wrapper_decorator
@@ -193,17 +193,19 @@ class Calculator:
 def main():
     app = Calculator()
     app.change_tab(TABLES)
+    app.set_number(0)
     app.set_number(5)
     app.set_number(16)
     app.set_number(0)
     app.set_number(36)
-    app.undo_spin()
-
-    time.sleep(10000)
+    # app.undo_spin()
 
     for name in INPUT_FIELDS:
         app.insert_number(name, 150)
     print(app.get_recommended_values())
+
+    time.sleep(10000)
+
     # print(app.name_to_child)
     # app.focus_cell(app.name_to_child['Min'])
     # time.sleep(2)
