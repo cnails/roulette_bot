@@ -17,7 +17,10 @@ FIELDS_TO_EN = {
 DEFAULTS = [5000, 20, 1000, 1, 5]
 EXIT = 'Выйти'
 LAUNCH = 'Запустить бота'
+NUM_OF_TABLES = 'num_of_tables'
 METHOD = 'method'
+
+CHIPS = ['0.10/0.20', '0.50', '1', '5', '25', '100']
 
 
 def run_interface():
@@ -27,6 +30,7 @@ def run_interface():
               [sg.Text('Количество столов'),
                sg.Spin(values=[i for i in range(1, 4)], initial_value=1, key='num_of_tables')],
               [sg.Checkbox('Играть на реальные деньги?', default=True, key='play_real')],
+              [sg.Text('Фишки на столах'), sg.InputOptionMenu(CHIPS, key='chip')],
               [sg.Text('Количество повторных запусков бота'),
                sg.Spin(values=[i for i in range(0, 100000)], initial_value=1, key='num_of_repetitions')],
               [sg.Text('Первое правило останова'),
@@ -41,7 +45,8 @@ def run_interface():
                    key='rule_break_second'
                ),
                sg.Spin(values=[i for i in range(1, 100000)], initial_value=10, key='rule_break_value_second')],
-              [sg.Checkbox('Строгое соблюдение правила останова?', default=False, key='rule_break_strict')],
+              [sg.Checkbox('Максимальное значение баланса', default=True, key='is_max_balance'),
+               sg.Spin(values=[i for i in range(1, 100000)], initial_value=60, key='max_balance')],
               [sg.Text()],
               [sg.Button(LAUNCH), sg.Button(EXIT)]]
 
@@ -67,6 +72,8 @@ def run_interface():
             browser = Browser(**values)  # , hide=True
             browser.run_roulettes()
             break
+        elif event == NUM_OF_TABLES:
+            pass
 
     window.close()
 
