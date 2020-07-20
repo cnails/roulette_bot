@@ -26,7 +26,6 @@ CHIPS = ['0.10/0.20', '0.50', '1', '5', '25', '100']
 def run_interface():
     layout = [[sg.Text('○ Настройки бота', background_color='black', text_color='white')],
               [sg.Text('Сайт'), sg.InputOptionMenu(('pinnacle',), key='site')],
-              [sg.Checkbox('Использовать встроенное прокси?', default=False, key='proxy')],
               [sg.Text('Количество столов'),
                sg.Spin(values=[i for i in range(1, 4)], initial_value=1, key='num_of_tables')],
               [sg.Checkbox('Играть на реальные деньги?', default=True, key='play_real')],
@@ -65,10 +64,7 @@ def run_interface():
                 values[FIELDS_TO_EN[elem]] = values[elem]
                 del values[elem]
             print(f'values: {values}')
-            if values['proxy']:
-                values['proxy'] = PROXY
-            else:
-                values['proxy'] = None
+            values['proxy'] = None
             browser = Browser(**values)  # , hide=True
             browser.run_roulettes()
             break

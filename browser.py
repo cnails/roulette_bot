@@ -11,7 +11,9 @@ from py_files.chrome_driver import Driver
 
 SITES = sorted(CREDENTIALS)
 PLACE_YOUR_BETS = 'PLACE YOUR BETS'
+PLACE_YOUR_BETS_RU = 'ДЕЛАЙТЕ ВАШИ СТАВКИ'
 BETS_CLOSING = 'BETS CLOSING'
+BETS_CLOSING_RU = 'СТАВКИ ЗАКРЫВАЮТСЯ'
 RULE_BREAKS = [
     'Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет'
 ]
@@ -59,7 +61,7 @@ class AbstractTab(ABC):
 
 
 class TextToChange:
-    def __init__(self, locator, driver, text=PLACE_YOUR_BETS):
+    def __init__(self, locator, driver, text=(PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU)):
         self.locator = locator
         self.text = text
         self.driver = driver
@@ -72,10 +74,15 @@ class TextToChange:
                 break
             except Exception:
                 pass
-        if actual_text != self.text and actual_text in [PLACE_YOUR_BETS, BETS_CLOSING] \
-                and not (actual_text == BETS_CLOSING and self.text == PLACE_YOUR_BETS):
+        if actual_text not in self.text and actual_text in [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU, BETS_CLOSING, BETS_CLOSING_RU] \
+                and not (actual_text in [BETS_CLOSING, BETS_CLOSING_RU] and self.text == [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]):
             return True
-        self.text = actual_text
+        if actual_text in [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]:
+            self.text = [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]
+        elif actual_text in [BETS_CLOSING, BETS_CLOSING_RU]:
+            self.text = [BETS_CLOSING, BETS_CLOSING_RU]
+        else:
+            self.text = (actual_text,)
         return False
 
 
@@ -97,7 +104,7 @@ class Tab(AbstractTab):
         self.calculator = Calculator(**kwargs)
         self.calculator.change_tab(TABLES)
         self.text_to_change = TextToChange(
-            (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, PLACE_YOUR_BETS)
+            (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU])
 
         # SET VIDEO SETTINGS
         self._set_video_settings()
@@ -121,18 +128,21 @@ class Tab(AbstractTab):
     @activate_tab
     def _set_video_settings(self):
         with Iframe(self.driver):
-            self.driver.wait_until('[data-role="settings-button"]')
-            self.driver.find_element_by_css_selector('[data-role="settings-button"]').click()
+            self.driver.wait_until('[data-role="switch-layout-button-container"] [data-role="button-bordered"]')
+            self.driver.find_element_by_css_selector('[data-role="switch-layout-button-container"] [data-role="button-bordered"]').click()
             time.sleep(0.5)
-            self.driver.wait_until('[data-role="tab-settings.video"]')
-            self.driver.find_element_by_css_selector('[data-role="tab-settings.video"]').click()
-            time.sleep(0.5)
-            self.driver.wait_until('[data-role="select-option"]')
-            self.driver.find_elements_by_css_selector('[data-role="select-option"]')[-1].click()
-            time.sleep(0.5)
-            self.driver.wait_until('[data-role="window-preferences_close"]')
-            self.driver.find_element_by_css_selector('[data-role="window-preferences_close"]').click()
-            time.sleep(0.5)
+            # self.driver.wait_until('[data-role="settings-button"]')
+            # self.driver.find_element_by_css_selector('[data-role="settings-button"]').click()
+            # time.sleep(0.5)
+            # self.driver.wait_until('[data-role="tab-settings.video"]')
+            # self.driver.find_element_by_css_selector('[data-role="tab-settings.video"]').click()
+            # time.sleep(0.5)
+            # self.driver.wait_until('[data-role="select-option"]')
+            # self.driver.find_elements_by_css_selector('[data-role="select-option"]')[-1].click()
+            # time.sleep(0.5)
+            # self.driver.wait_until('[data-role="window-preferences_close"]')
+            # self.driver.find_element_by_css_selector('[data-role="window-preferences_close"]').click()
+            # time.sleep(0.5)
             for cross in self.driver.find_elements_by_css_selector(self.credentials['cross']):
                 self.driver.execute_script(
                     "arguments[0].setAttribute('opacity', '1')", cross
@@ -151,7 +161,7 @@ class Tab(AbstractTab):
         self.bet_spot_field = self.credentials["bet_spot"]
         with Iframe(self.driver):
             bet_spots = self.driver.driver.find_elements_by_xpath(
-                "//*[@class='slingshot-wrapper']//*[@data-bet-spot-id]")
+                "//*[contains(@class,'slingshot-wrapper') or contains(@class,'classicStandard-wrapper')]//*[@data-bet-spot-id]")
             bet_spots = {bet_spot.get_attribute(self.bet_spot_field): bet_spot for bet_spot in bet_spots}
         return bet_spots
 
@@ -160,7 +170,7 @@ class Tab(AbstractTab):
         with Iframe(self.driver):
             self.driver.wait_until(self.credentials['current_balance'])
             balance = self.driver.find_element_by_css_selector(self.credentials['current_balance'])
-            balance = float(balance.text)
+            balance = float(balance.text.replace(',', '.'))
         return balance
 
     @activate_tab
@@ -168,7 +178,7 @@ class Tab(AbstractTab):
         with Iframe(self.driver):
             self.driver.wait_until(self.credentials['total_bet'])
             balance = self.driver.find_element_by_css_selector(self.credentials['total_bet'])
-            # balance = float(balance.text)
+            balance = float(balance.text.replace(',', '.'))
         return balance
 
     @activate_tab
@@ -193,7 +203,7 @@ class Tab(AbstractTab):
             if not self.text_to_change():
                 return
             self.text_to_change = TextToChange(
-                (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, PLACE_YOUR_BETS)
+                (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU])
         number = self.get_recent_number()
         if number not in self.prev_prediction:
             self.num_of_fails += 1
@@ -282,7 +292,7 @@ class Browser:
             if self.credentials['live_roulette_lobby'] == table_names[i]:
                 self.sleep(2.5)
                 self.driver.execute_script("arguments[0].scrollIntoView();", table)
-                self.sleep(1.5)
+                self.sleep(5)
                 table.click()
                 with Iframe(self.driver):
                     self.driver.wait_until(self.credentials['live_roulette_tables'])
@@ -302,7 +312,7 @@ class Browser:
                     tables_inner = self.driver.find_elements_by_css_selector(self.credentials['tables'])
                     self.driver.execute_script("arguments[0].scrollIntoView();", tables_inner[0])
                     self.sleep(1)
-                    tables_inner[0].click()
+                    tables_inner[4].click()  # HARDCODE
                     self.sleep(0.5)
 
                     with Iframe(self.driver):
@@ -316,6 +326,8 @@ class Browser:
                     tabs.append(Tab(f'{j}', self.driver, self.credentials, **kwargs))
                     self.sleep(1)
                     j += 1
+            else:
+                continue
             # TODO: remove later
             break
             # else:

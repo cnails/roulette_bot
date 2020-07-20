@@ -4,8 +4,8 @@ PROXY = 'https://sansay:rfgrfgerf@179.61.188.91:45785/'
 
 CREDENTIALS = {
     'pinnacle': {
-        'site': 'https://www1.pinnacle.com/en/casino/games/live/roulette',
-        'login': 'https://www.pinnacle.com/en/account/login?appId=casino&returnPath=%2fen%2fcasino%2fgames%2flive%2froulette',
+        'site': 'https://www1.pinnacle.com/ru/casino/games/live/roulette',
+        'login': 'https://www.pinnacle.com/ru/account/login/?appId=casino&returnPath=%2fru%2fcasino%2fgames%2flive%2froulette',
         'login_check': '.account-menu-container',
         'email': 'happypuffin7@gmail.com',
         'user': 'dr770149',  # 'EG1245397'

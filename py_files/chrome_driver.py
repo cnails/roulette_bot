@@ -303,7 +303,7 @@ class Driver:
     def implicitly_wait(self, time_):
         self.driver.implicitly_wait(time_)
 
-    def wait_until(self, css_selector, timeout=60, selector_type='css', captcha=False):
+    def wait_until(self, css_selector, timeout=180, selector_type='css', captcha=False):
         if selector_type == 'css':
             selector_type = By.CSS_SELECTOR
         elif selector_type == 'id':
