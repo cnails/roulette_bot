@@ -74,6 +74,7 @@ class TextToChange:
                 break
             except Exception:
                 pass
+        # print(time.time(), actual_text, self.text)
         if actual_text not in self.text and actual_text in [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU, BETS_CLOSING, BETS_CLOSING_RU] \
                 and not (actual_text in [BETS_CLOSING, BETS_CLOSING_RU] and self.text == [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]):
             return True
@@ -196,6 +197,14 @@ class Tab(AbstractTab):
         return numbers
 
     @activate_tab
+    def set_zero_and_undo(self):
+        with Iframe(self.driver):
+            chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
+            self.driver.execute_script('arguments[0].click();', chips[self.chip_num])
+            self.bet_spots['0'].click()
+            self.driver.find_element_by_css_selector('[data-role="undo-button"]').click()
+
+    @activate_tab
     def make_bets(self, run=True):
         self.driver.driver.switch_to.window(self.window_name)
         # self.set_radial_chips(num=0)  # WAITING HERE
@@ -216,6 +225,7 @@ class Tab(AbstractTab):
                 self.num_of_repetitions -= 1
 
         self.calculator.set_number(number)
+        self.set_zero_and_undo()
 
         if not run:
             return
