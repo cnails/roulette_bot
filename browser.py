@@ -1,6 +1,7 @@
 import functools
 import time
 from abc import ABC, abstractmethod
+from math import floor, log
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.expected_conditions import _find_element
@@ -17,7 +18,8 @@ BETS_CLOSING_RU = 'СТАВКИ ЗАКРЫВАЮТСЯ'
 RULE_BREAKS = [
     'Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет'
 ]
-CHIPS = ['0.10/0.20', '0.50', '1', '5', '25', '100']
+BREAK_RULES = ('Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет')
+CHIPS = ['0.20', '0.50', '1', '5', '25', '100']
 
 
 class Iframe:
@@ -126,6 +128,10 @@ class Tab(AbstractTab):
         self.prev_prediction = set()
         self.turn_on = True
 
+        self.spins_for_red = kwargs['spins_for_red']
+        self.spin = 0
+        self.last_made_bet = 0
+
     @activate_tab
     def _set_video_settings(self):
         with Iframe(self.driver):
@@ -205,7 +211,7 @@ class Tab(AbstractTab):
             self.driver.find_element_by_css_selector('[data-role="undo-button"]').click()
 
     @activate_tab
-    def make_bets(self, run=True):
+    def make_bets(self, run, gui_window, tab_num):
         self.driver.driver.switch_to.window(self.window_name)
         # self.set_radial_chips(num=0)  # WAITING HERE
         with Iframe(self.driver):
@@ -215,27 +221,49 @@ class Tab(AbstractTab):
                 (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU])
         number = self.get_recent_number()
         if number not in self.prev_prediction:
-            self.num_of_fails += 1
+            if self.prev_prediction:
+                self.num_of_fails += 1
+                gui_window.Element(key=f'-TABLE{tab_num}-').Rows[4][-1].update(self.num_of_fails)
         else:
             if self.num_of_repetitions and self.rule_break != RULE_BREAKS[2]:
-                self.rule_break_value = self.rule_break_value_second
-                self.rule_break = self.rule_break_second
-                self.turn_on = True
-                self.num_of_fails = 0
-                self.num_of_repetitions -= 1
+                if not self.turn_on:
+                    self.rule_break_value = self.rule_break_value_second
+                    self.rule_break = self.rule_break_second
+                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(f"NEXT: {BREAK_RULES.index(self.rule_break) + 1} ({self.rule_break_value})")
+                    self.turn_on = True
+                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('ДА')
+                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(text_color='darkgreen')
+                    self.num_of_repetitions -= 1
+                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[2][-1].update(str(self.num_of_repetitions))
+            self.num_of_fails = 0
+            gui_window.Element(key=f'-TABLE{tab_num}-').Rows[4][-1].update(str(self.num_of_fails))
 
         self.calculator.set_number(number)
-        self.set_zero_and_undo()
+        self.spin += 1
+        # self.set_zero_and_undo()
 
-        if not run:
-            return
+        gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(str(self.spins_for_red - (self.spin - self.last_made_bet)))
+
+        if (self.spin - self.last_made_bet) % self.spins_for_red == 0:
+            with Iframe(self.driver):
+                chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
+                self.driver.execute_script('arguments[0].click();', chips[0])
+
+                self.last_made_bet = self.spin
+                gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(
+                    str(self.spins_for_red - (self.spin - self.last_made_bet)))
+
+                self.bet_spots['red'].click()
+                if not self.play_real:
+                    undo_button = self.driver.find_element_by_css_selector('[data-role="undo-button"]')
+                    undo_button.click()
 
         recommended_numbers = self.calculator.get_recommended_values()
         self.prev_prediction = set(recommended_numbers)
 
+        max_ = self.calculator.get_field_value('Max')
+        balance = self.calculator.get_field_value('Суммарный баланс')
         if self.rule_break == RULE_BREAKS[0]:
-            max_ = self.calculator.get_field_value('Max')
-            balance = self.calculator.get_field_value('Суммарный баланс')
             if max_ - balance >= self.rule_break_value:
                 if number not in self.prev_prediction:
                     self.turn_on = False
@@ -244,25 +272,40 @@ class Tab(AbstractTab):
                 self.turn_on = False
         else:  # self.rule_break == 'Нет'
             pass
+        gui_window.Element(key=f'-TABLE{tab_num}-').Rows[5][-1].update(str(max_ - balance))
         if not self.turn_on:
+            gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('НЕТ')
+            gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(text_color='darkred')
+            if not self.num_of_repetitions:
+                gui_window.Element(key=f'-TABLE{tab_num}-').Rows[1][-1].update('ДА')
+                gui_window.Element(key=f'-TABLE{tab_num}-').Rows[1][-1].update(text_color='darkgreen')
             return
 
-        bet = self.calculator.get_field_value('Ставка')  # NB (with double)
+        if not run:
+            return
+
+        bet = self.calculator.get_field_value('Ставка') or 1
+        if tab_num == 1:  # HARDCODE
+            bet *= 2
+
         with Iframe(self.driver):
             print(f'recommended_numbers: {recommended_numbers}')
             # SET CHIPS
             chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
             self.driver.execute_script('arguments[0].click();', chips[self.chip_num])
 
+            if recommended_numbers:
+                self.last_made_bet = self.spin
+
             for recommended_number in recommended_numbers:
                 self.bet_spots[str(recommended_number)].click()
-                # self.driver.find_elements_by_css_selector(
-                #     f'[{self.bet_spot_field}="{}"]').click()
-                if False:  # NEED TO DOUBLE?
-                    self.driver.find_elements_by_css_selector('[data-role="repeat-button"]').click()
+                self.driver.wait_until('[data-role="double-button"]')
+            for _ in range(int(floor(log(bet, 2)))):
+                self.driver.find_element_by_css_selector('[data-role="double-button"]').click()
+
             if not self.play_real:
                 undo_button = self.driver.find_element_by_css_selector('[data-role="undo-button"]')
-                for _ in range(len(recommended_numbers)):
+                for _ in range(len(recommended_numbers) * bet):
                     undo_button.click()
 
     # def __del__(self):
@@ -270,9 +313,11 @@ class Tab(AbstractTab):
 
 
 class Browser:
-    def __init__(self, site=SITES[0], driver=None, **kwargs):
+    def __init__(self, gui_window, site=SITES[0], driver=None, **kwargs):
         assert site in SITES, "site should be either of " + str(SITES)
         self.credentials = CREDENTIALS[site]
+        self.gui_window = gui_window
+
         if driver is None:
             self.driver = Driver(**kwargs)
         else:
@@ -282,6 +327,7 @@ class Browser:
         self.is_max_balance = kwargs.get('is_max_balance')
         self.max_balance = kwargs.get('max_balance')
         self.tabs = self._get_tabs(**kwargs)
+        self.run_roulettes()  # TODO: ?
 
     def sleep(self, quantity):
         time.sleep(quantity)
@@ -379,15 +425,19 @@ class Browser:
     def run_roulettes(self):
         self.driver.driver.switch_to.window(self.tabs[0].window_name)
         start_balance = self.tabs[0].get_current_balance()
+        self.gui_window.Element(key='-VARS-').Rows[0][-1].update(str(start_balance))
         run = True
         while True:
-            for tab in self.tabs:
+            for i, tab in enumerate(self.tabs):
                 current_balance = tab.get_current_balance()
+                self.gui_window.Element(key='-VARS-').Rows[1][-1].update(str(current_balance))
                 if self.is_max_balance and current_balance - start_balance >= self.max_balance:
+                    self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update('ДА')
+                    self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update(text_color='darkgreen')
                     run = False
-                time.sleep(0.1)  # ?
+                # time.sleep(0.1)  # ?
                 # print(tab.num_of_fails, tab.prev_prediction, tab.turn_on)
-                tab.make_bets(run=run)
+                tab.make_bets(run, self.gui_window, i + 1)
 
 
 def main():
