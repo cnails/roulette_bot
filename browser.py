@@ -309,6 +309,7 @@ class Tab(AbstractTab):
                     undo_button.click()
 
     # def __del__(self):
+    #     self.driver.driver.quit()
     #     self.calculator.app.kill()
 
 
