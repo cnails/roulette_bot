@@ -17,15 +17,15 @@ FIELDS_TO_EN = {
     'Максимальное количество ОБРАБАТЫВАЕМЫХ чисел': 'max_num_of_processed_numbers',
     'Методика': 'method',
 }
-BREAK_RULES = ('Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет')
+BREAK_RULES = ('Максимальное количество неудачных предсказаний', 'Нет')
 DEFAULTS = [5000, 20, 1000, 1, 5]
 EXIT = 'Выйти'
 LAUNCH = 'Запустить бота'
 NUM_OF_TABLES = 'num_of_tables'
 METHOD = 'method'
 
-CHECK_WINDOW_SIZE = (1280, 600)
-WINDOW_SIZE = (1280, 1000 - CHECK_WINDOW_SIZE[-1])
+CHECK_WINDOW_SIZE = (1280, 620)
+WINDOW_SIZE = (1280, 1040 - CHECK_WINDOW_SIZE[-1])
 FRAME_ROW_SIZE = (32, 1)
 FRAME_ROW_TEXT_SIZE = (10, 1)
 FRAME_ROW_ALIGN = 'r'
@@ -53,6 +53,8 @@ def run_interface():
          sg.Spin(values=[i for i in range(1, 100000)], initial_value=10, key='rule_break_value_second')],
         [sg.Checkbox('Максимальное значение баланса', default=True, key='is_max_balance'),
          sg.Spin(values=[i for i in range(1, 100000)], initial_value=60, key='max_balance')],
+        [sg.Checkbox('Максимальное отклонение баланса в орицательную сторону', default=True, key='is_min_balance'),
+         sg.Spin(values=[i for i in range(1, 100000)], initial_value=30, key='min_balance')],
         [sg.Text('Ставить на красное каждые N спинов'),
          sg.Spin(values=[i for i in range(1, 1000)], initial_value=30, key='spins_for_red')],
         [sg.Button(LAUNCH), sg.Button(EXIT)]
@@ -91,6 +93,8 @@ def run_interface():
                  sg.Text('', text_color=FRAME_ROW_COLOR, size=FRAME_ROW_TEXT_SIZE)],
                 [sg.Text('Нынешнее значение баланса', size=FRAME_ROW_SIZE, justification=FRAME_ROW_ALIGN),
                  sg.Text('', text_color=FRAME_ROW_COLOR, size=FRAME_ROW_TEXT_SIZE)],
+                [sg.Text('Максимальное значение баланса', size=FRAME_ROW_SIZE, justification=FRAME_ROW_ALIGN),
+                 sg.Text('', text_color=FRAME_ROW_COLOR, size=FRAME_ROW_TEXT_SIZE)],
                 [sg.Text('Количество столов', size=FRAME_ROW_SIZE, justification=FRAME_ROW_ALIGN),
                  sg.Text(str(values['num_of_tables']), text_color=FRAME_ROW_COLOR, size=FRAME_ROW_TEXT_SIZE)],
                 [sg.Text('Играет на реальные деньги?', size=FRAME_ROW_SIZE, justification=FRAME_ROW_ALIGN),
@@ -109,6 +113,9 @@ def run_interface():
                 [sg.Text('Максимальное значение баланса', size=FRAME_ROW_SIZE, justification=FRAME_ROW_ALIGN),
                  sg.Text(f"ДА ({values['max_balance']})" if values['is_max_balance'] else "НЕТ",
                          text_color="darkgreen" if values['is_max_balance'] else "darkred", size=FRAME_ROW_TEXT_SIZE)],
+                [sg.Text('Максимальное отклонение баланса', size=FRAME_ROW_SIZE, justification=FRAME_ROW_ALIGN),
+                 sg.Text(f"ДА ({values['min_balance']})" if values['is_min_balance'] else "НЕТ",
+                         text_color="darkgreen" if values['is_min_balance'] else "darkred", size=FRAME_ROW_TEXT_SIZE)],
                 [sg.Text('Ставить на красное каждые N спинов', size=FRAME_ROW_SIZE, justification=FRAME_ROW_ALIGN),
                  sg.Text(str(values['spins_for_red']), text_color=FRAME_ROW_COLOR, size=FRAME_ROW_TEXT_SIZE)],
             ], title='Переменные', title_color='black', relief=sg.RELIEF_SUNKEN, key='-VARS-',

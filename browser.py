@@ -18,7 +18,7 @@ BETS_CLOSING_RU = 'СТАВКИ ЗАКРЫВАЮТСЯ'
 RULE_BREAKS = [
     'Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет'
 ]
-BREAK_RULES = ('Максимальное отклонение от значения Max', 'Максимальное количество неудачных предсказаний', 'Нет')
+BREAK_RULES = ('Максимальное количество неудачных предсказаний', 'Нет')
 CHIPS = ['0.20', '0.50', '1', '5', '25', '100']
 
 
@@ -77,8 +77,10 @@ class TextToChange:
             except Exception:
                 pass
         # print(time.time(), actual_text, self.text)
-        if actual_text not in self.text and actual_text in [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU, BETS_CLOSING, BETS_CLOSING_RU] \
-                and not (actual_text in [BETS_CLOSING, BETS_CLOSING_RU] and self.text == [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]):
+        if actual_text not in self.text and actual_text in [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU, BETS_CLOSING,
+                                                            BETS_CLOSING_RU] \
+                and not (
+                actual_text in [BETS_CLOSING, BETS_CLOSING_RU] and self.text == [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]):
             return True
         if actual_text in [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]:
             self.text = [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]
@@ -107,7 +109,8 @@ class Tab(AbstractTab):
         self.calculator = Calculator(**kwargs)
         self.calculator.change_tab(TABLES)
         self.text_to_change = TextToChange(
-            (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU])
+            (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]
+        )
 
         # SET VIDEO SETTINGS
         self._set_video_settings()
@@ -136,7 +139,8 @@ class Tab(AbstractTab):
     def _set_video_settings(self):
         with Iframe(self.driver):
             self.driver.wait_until('[data-role="switch-layout-button-container"] [data-role="button-bordered"]')
-            self.driver.find_element_by_css_selector('[data-role="switch-layout-button-container"] [data-role="button-bordered"]').click()
+            self.driver.find_element_by_css_selector(
+                '[data-role="switch-layout-button-container"] [data-role="button-bordered"]').click()
             time.sleep(0.5)
             # self.driver.wait_until('[data-role="settings-button"]')
             # self.driver.find_element_by_css_selector('[data-role="settings-button"]').click()
@@ -229,7 +233,8 @@ class Tab(AbstractTab):
                 if not self.turn_on:
                     self.rule_break_value = self.rule_break_value_second
                     self.rule_break = self.rule_break_second
-                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(f"NEXT: {BREAK_RULES.index(self.rule_break) + 1} ({self.rule_break_value})")
+                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(
+                        f"Следующее: {BREAK_RULES.index(self.rule_break) + 1} ({self.rule_break_value})")
                     self.turn_on = True
                     gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('ДА')
                     gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(text_color='darkgreen')
@@ -242,7 +247,8 @@ class Tab(AbstractTab):
         self.spin += 1
         # self.set_zero_and_undo()
 
-        gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(str(self.spins_for_red - (self.spin - self.last_made_bet)))
+        gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(
+            str(self.spins_for_red - (self.spin - self.last_made_bet)))
 
         if (self.spin - self.last_made_bet) % self.spins_for_red == 0:
             with Iframe(self.driver):
@@ -327,8 +333,10 @@ class Browser:
         self.num_of_tables = kwargs.get('num_of_tables')
         self.is_max_balance = kwargs.get('is_max_balance')
         self.max_balance = kwargs.get('max_balance')
+        self.is_min_balance = kwargs.get('is_min_balance')
+        self.min_balance = kwargs.get('min_balance')
         self.tabs = self._get_tabs(**kwargs)
-        self.run_roulettes()  # TODO: ?
+        self.run_roulettes()
 
     def sleep(self, quantity):
         time.sleep(quantity)
@@ -426,13 +434,19 @@ class Browser:
     def run_roulettes(self):
         self.driver.driver.switch_to.window(self.tabs[0].window_name)
         start_balance = self.tabs[0].get_current_balance()
+        max_balance = start_balance
         self.gui_window.Element(key='-VARS-').Rows[0][-1].update(str(start_balance))
+        self.gui_window.Element(key='-VARS-').Rows[2][-1].update(str(max_balance))
         run = True
         while True:
             for i, tab in enumerate(self.tabs):
                 current_balance = tab.get_current_balance()
+                if current_balance > max_balance:
+                    max_balance = current_balance
+                    self.gui_window.Element(key='-VARS-').Rows[2][-1].update(str(max_balance))
                 self.gui_window.Element(key='-VARS-').Rows[1][-1].update(str(current_balance))
-                if self.is_max_balance and current_balance - start_balance >= self.max_balance:
+                if self.is_max_balance and current_balance - start_balance >= self.max_balance or \
+                        self.is_min_balance and current_balance - max_balance <= self.min_balance:
                     self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update('ДА')
                     self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update(text_color='darkgreen')
                     run = False
