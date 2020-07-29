@@ -24,8 +24,8 @@ LAUNCH = 'Запустить бота'
 NUM_OF_TABLES = 'num_of_tables'
 METHOD = 'method'
 
-CHECK_WINDOW_SIZE = (1280, 620)
-WINDOW_SIZE = (1280, 1040 - CHECK_WINDOW_SIZE[-1])
+CHECK_WINDOW_SIZE = (1280, 660)
+WINDOW_SIZE = (1280, 1080 - CHECK_WINDOW_SIZE[-1])
 FRAME_ROW_SIZE = (32, 1)
 FRAME_ROW_TEXT_SIZE = (10, 1)
 FRAME_ROW_ALIGN = 'r'
@@ -47,10 +47,10 @@ def run_interface():
          sg.Spin(values=[i for i in range(0, 100000)], initial_value=1, key='num_of_repetitions')],
         [sg.Text('Первое правило останова'),
          sg.InputOptionMenu(BREAK_RULES, key='rule_break'),
-         sg.Spin(values=[i for i in range(1, 100000)], initial_value=50, key='rule_break_value_first')],
+         sg.Spin(values=[i for i in range(1, 100000)], initial_value=5, key='rule_break_value_first')],
         [sg.Text('Последующие правила останова'),
          sg.InputOptionMenu(BREAK_RULES, key='rule_break_second'),
-         sg.Spin(values=[i for i in range(1, 100000)], initial_value=10, key='rule_break_value_second')],
+         sg.Spin(values=[i for i in range(1, 100000)], initial_value=7, key='rule_break_value_second')],
         [sg.Checkbox('Максимальное значение баланса', default=True, key='is_max_balance'),
          sg.Spin(values=[i for i in range(1, 100000)], initial_value=60, key='max_balance')],
         [sg.Checkbox('Максимальное отклонение баланса в орицательную сторону', default=True, key='is_min_balance'),

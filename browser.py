@@ -446,7 +446,7 @@ class Browser:
                     self.gui_window.Element(key='-VARS-').Rows[2][-1].update(str(max_balance))
                 self.gui_window.Element(key='-VARS-').Rows[1][-1].update(str(current_balance))
                 if self.is_max_balance and current_balance - start_balance >= self.max_balance or \
-                        self.is_min_balance and current_balance - max_balance <= self.min_balance:
+                        self.is_min_balance and current_balance - max_balance <= -self.min_balance:
                     self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update('ДА')
                     self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update(text_color='darkgreen')
                     run = False
