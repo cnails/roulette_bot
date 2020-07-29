@@ -305,8 +305,11 @@ class Tab(AbstractTab):
 
             for recommended_number in recommended_numbers:
                 self.bet_spots[str(recommended_number)].click()
+
+            num_of_doubles = int(floor(log(bet, 2)))
+            if num_of_doubles:
                 self.driver.wait_until('[data-role="double-button"]')
-            for _ in range(int(floor(log(bet, 2)))):
+            for _ in range(num_of_doubles):
                 self.driver.find_element_by_css_selector('[data-role="double-button"]').click()
 
             if not self.play_real:
