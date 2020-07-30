@@ -215,7 +215,7 @@ class Tab(AbstractTab):
             self.driver.find_element_by_css_selector('[data-role="undo-button"]').click()
 
     @activate_tab
-    def make_bets(self, run, gui_window, tab_num):
+    def make_bets(self, run, tab_num):  # gui_window,
         self.driver.driver.switch_to.window(self.window_name)
         # self.set_radial_chips(num=0)  # WAITING HERE
         with Iframe(self.driver):
@@ -227,28 +227,28 @@ class Tab(AbstractTab):
         if number not in self.prev_prediction:
             if self.prev_prediction:
                 self.num_of_fails += 1
-                gui_window.Element(key=f'-TABLE{tab_num}-').Rows[4][-1].update(self.num_of_fails)
+                # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[4][-1].update(self.num_of_fails)
         else:
             if self.num_of_repetitions and self.rule_break != RULE_BREAKS[2]:
                 if not self.turn_on:
                     self.rule_break_value = self.rule_break_value_second
                     self.rule_break = self.rule_break_second
-                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[3][-1].update(
-                        f"{BREAK_RULES.index(self.rule_break) + 1} ({self.rule_break_value})")
+                    # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[3][-1].update(
+                    #     f"{BREAK_RULES.index(self.rule_break) + 1} ({self.rule_break_value})")
                     self.turn_on = True
-                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('ДА')
-                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(text_color='darkgreen')
+                    # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('ДА')
+                    # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(text_color='darkgreen')
                     self.num_of_repetitions -= 1
-                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[2][-1].update(str(self.num_of_repetitions))
+                    # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[2][-1].update(str(self.num_of_repetitions))
             self.num_of_fails = 0
-            gui_window.Element(key=f'-TABLE{tab_num}-').Rows[4][-1].update(str(self.num_of_fails))
+            # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[4][-1].update(str(self.num_of_fails))
 
         self.calculator.set_number(number)
         self.spin += 1
         # self.set_zero_and_undo()
 
-        gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(
-            str(self.spins_for_red - (self.spin - self.last_made_bet)))
+        # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(
+        #     str(self.spins_for_red - (self.spin - self.last_made_bet)))
 
         if (self.spin - self.last_made_bet) % self.spins_for_red == 0:
             with Iframe(self.driver):
@@ -256,8 +256,8 @@ class Tab(AbstractTab):
                 self.driver.execute_script('arguments[0].click();', chips[0])
 
                 self.last_made_bet = self.spin
-                gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(
-                    str(self.spins_for_red - (self.spin - self.last_made_bet)))
+                # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(
+                #     str(self.spins_for_red - (self.spin - self.last_made_bet)))
 
                 self.bet_spots['red'].click()
                 if not self.play_real:
@@ -278,13 +278,13 @@ class Tab(AbstractTab):
                 self.turn_on = False
         else:  # self.rule_break == 'Нет'
             pass
-        gui_window.Element(key=f'-TABLE{tab_num}-').Rows[5][-1].update(str(max_ - balance))
+        # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[5][-1].update(str(max_ - balance))
         if not self.turn_on:
-            gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('НЕТ')
-            gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(text_color='darkred')
-            if not self.num_of_repetitions:
-                gui_window.Element(key=f'-TABLE{tab_num}-').Rows[1][-1].update('ДА')
-                gui_window.Element(key=f'-TABLE{tab_num}-').Rows[1][-1].update(text_color='darkgreen')
+            # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('НЕТ')
+            # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(text_color='darkred')
+            # if not self.num_of_repetitions:
+            #     gui_window.Element(key=f'-TABLE{tab_num}-').Rows[1][-1].update('ДА')
+            #     gui_window.Element(key=f'-TABLE{tab_num}-').Rows[1][-1].update(text_color='darkgreen')
             return
 
         if not run:
@@ -323,10 +323,10 @@ class Tab(AbstractTab):
 
 
 class Browser:
-    def __init__(self, gui_window, site=SITES[0], driver=None, **kwargs):
+    def __init__(self, site=SITES[0], driver=None, **kwargs):  # gui_window,
         assert site in SITES, "site should be either of " + str(SITES)
         self.credentials = CREDENTIALS[site]
-        self.gui_window = gui_window
+        # self.gui_window = gui_window
 
         if driver is None:
             self.driver = Driver(**kwargs)
@@ -355,6 +355,7 @@ class Browser:
         assert len(tables) == len(table_names)
         tabs = []
         j = 0
+        print(table_names)
         for i, table in enumerate(tables):
             self.driver.driver.maximize_window()
             if self.credentials['live_roulette_lobby'] == table_names[i]:
@@ -380,7 +381,11 @@ class Browser:
                     tables_inner = self.driver.find_elements_by_css_selector(self.credentials['tables'])
                     self.driver.execute_script("arguments[0].scrollIntoView();", tables_inner[0])
                     self.sleep(1)
-                    tables_inner[4].click()  # HARDCODE
+
+                    table_names_inner = self.driver.find_elements_by_css_selector(self.credentials['table_names'])
+                    table_names_inner = [table_name.text.strip().lower() for table_name in table_names_inner]
+                    tables_inner[table_names_inner.index(self.credentials['live_roulette_lobby'])].click()
+
                     self.sleep(0.5)
 
                     with Iframe(self.driver):
@@ -438,24 +443,24 @@ class Browser:
         self.driver.driver.switch_to.window(self.tabs[0].window_name)
         start_balance = self.tabs[0].get_current_balance()
         max_balance = start_balance
-        self.gui_window.Element(key='-VARS-').Rows[0][-1].update(str(start_balance))
-        self.gui_window.Element(key='-VARS-').Rows[2][-1].update(str(max_balance))
+        # self.gui_window.Element(key='-VARS-').Rows[0][-1].update(str(start_balance))
+        # self.gui_window.Element(key='-VARS-').Rows[2][-1].update(str(max_balance))
         run = True
         while True:
             for i, tab in enumerate(self.tabs):
                 current_balance = tab.get_current_balance()
                 if current_balance > max_balance:
                     max_balance = current_balance
-                    self.gui_window.Element(key='-VARS-').Rows[2][-1].update(str(max_balance))
-                self.gui_window.Element(key='-VARS-').Rows[1][-1].update(str(current_balance))
+                #     self.gui_window.Element(key='-VARS-').Rows[2][-1].update(str(max_balance))
+                # self.gui_window.Element(key='-VARS-').Rows[1][-1].update(str(current_balance))
                 if self.is_max_balance and current_balance - start_balance >= self.max_balance or \
                         self.is_min_balance and current_balance - max_balance <= -self.min_balance:
-                    self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update('ДА')
-                    self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update(text_color='darkgreen')
+                    # self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update('ДА')
+                    # self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update(text_color='darkgreen')
                     run = False
                 # time.sleep(0.1)  # ?
                 # print(tab.num_of_fails, tab.prev_prediction, tab.turn_on)
-                tab.make_bets(run, self.gui_window, i + 1)
+                tab.make_bets(run, i + 1)  # self.gui_window,
 
 
 def main():
