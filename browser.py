@@ -233,8 +233,8 @@ class Tab(AbstractTab):
                 if not self.turn_on:
                     self.rule_break_value = self.rule_break_value_second
                     self.rule_break = self.rule_break_second
-                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(
-                        f"Следующее: {BREAK_RULES.index(self.rule_break) + 1} ({self.rule_break_value})")
+                    gui_window.Element(key=f'-TABLE{tab_num}-').Rows[3][-1].update(
+                        f"{BREAK_RULES.index(self.rule_break) + 1} ({self.rule_break_value})")
                     self.turn_on = True
                     gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('ДА')
                     gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(text_color='darkgreen')
