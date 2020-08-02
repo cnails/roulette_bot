@@ -67,6 +67,7 @@ class TextToChange:
         self.locator = locator
         self.text = text
         self.driver = driver
+        self.number = -1
 
     def __call__(self):
         # self.driver.wait_until(self.locator[-1])  # NB: check if there is a problem
@@ -77,10 +78,12 @@ class TextToChange:
             except Exception:
                 pass
         # print(time.time(), actual_text, self.text)
-        if actual_text not in self.text and actual_text in [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU, BETS_CLOSING,
-                                                            BETS_CLOSING_RU] \
-                and not (
-                actual_text in [BETS_CLOSING, BETS_CLOSING_RU] and self.text == [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]):
+        if actual_text.startswith(('0', '1', '2', '3')):
+            self.number = int(actual_text[:2].strip())
+        if actual_text not in self.text and actual_text in \
+                [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU, BETS_CLOSING, BETS_CLOSING_RU] and \
+                not (actual_text in [BETS_CLOSING, BETS_CLOSING_RU] and
+                     self.text == [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]):
             return True
         if actual_text in [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]:
             self.text = [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]
@@ -134,6 +137,9 @@ class Tab(AbstractTab):
         self.spins_for_red = kwargs['spins_for_red']
         self.spin = 0
         self.last_made_bet = 0
+
+        with Iframe(self.driver):
+            self.chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
 
     @activate_tab
     def _set_video_settings(self):
@@ -195,13 +201,17 @@ class Tab(AbstractTab):
     @activate_tab
     def get_recent_number(self):
         """ returns recent number """
-        return self.get_recent_numbers()[0]
+        with Iframe(self.driver):
+            self.driver.wait_until(self.credentials['recent_number'])
+            numbers = self.driver.find_elements_by_css_selector(self.credentials['recent_number'])
+            return int(numbers[0].text)
 
     @activate_tab
     def get_recent_numbers(self):
         """ returns recent numbers """
         with Iframe(self.driver):
             self.driver.wait_until(self.credentials['recent_number'])
+            # '[data-role="recent-number"] span'
             numbers = self.driver.find_elements_by_css_selector(self.credentials['recent_number'])
             numbers = [int(number.text) for number in numbers]
         return numbers
@@ -221,9 +231,11 @@ class Tab(AbstractTab):
         with Iframe(self.driver):
             if not self.text_to_change():
                 return
+            number = self.text_to_change.number
             self.text_to_change = TextToChange(
                 (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU])
-        number = self.get_recent_number()
+        if number == -1:
+            number = self.get_recent_number()
         if number not in self.prev_prediction:
             if self.prev_prediction:
                 self.num_of_fails += 1
@@ -252,8 +264,9 @@ class Tab(AbstractTab):
 
         if (self.spin - self.last_made_bet) % self.spins_for_red == 0:
             with Iframe(self.driver):
-                chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
-                self.driver.execute_script('arguments[0].click();', chips[0])
+                # chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
+                # self.driver.execute_script('arguments[0].click();', self.chips[0])  #
+                self.chips[0].click()
 
                 self.last_made_bet = self.spin
                 # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(
@@ -267,17 +280,17 @@ class Tab(AbstractTab):
         recommended_numbers = self.calculator.get_recommended_values()
         self.prev_prediction = set(recommended_numbers)
 
-        max_ = self.calculator.get_field_value('Max')
-        balance = self.calculator.get_field_value('Суммарный баланс')
-        if self.rule_break == RULE_BREAKS[0]:
-            if max_ - balance >= self.rule_break_value:
-                if number not in self.prev_prediction:
-                    self.turn_on = False
-        elif self.rule_break == RULE_BREAKS[1]:
+        # max_ = self.calculator.get_field_value('Max')
+        # balance = self.calculator.get_field_value('Суммарный баланс')
+        # if self.rule_break == RULE_BREAKS[0]:
+        #     if max_ - balance >= self.rule_break_value:
+        #         if number not in self.prev_prediction:
+        #             self.turn_on = False
+        if self.rule_break == RULE_BREAKS[1]:
             if self.num_of_fails >= self.rule_break_value:
                 self.turn_on = False
-        else:  # self.rule_break == 'Нет'
-            pass
+        # else:  # self.rule_break == 'Нет'
+        #     pass
         # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[5][-1].update(str(max_ - balance))
         if not self.turn_on:
             # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('НЕТ')
@@ -291,14 +304,16 @@ class Tab(AbstractTab):
             return
 
         bet = self.calculator.get_field_value('Ставка') or 1
-        if tab_num == 1:  # HARDCODE
+        if tab_num == 1 and self.chip_num == 0:
             bet *= 2
 
         with Iframe(self.driver):
             print(f'recommended_numbers: {recommended_numbers}')
+
             # SET CHIPS
-            chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
-            self.driver.execute_script('arguments[0].click();', chips[self.chip_num])
+            # chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
+            self.chips[self.chip_num].click()
+            # self.driver.execute_script('arguments[0].click();', self.chips[self.chip_num])  #
 
             if recommended_numbers:
                 self.last_made_bet = self.spin
@@ -311,6 +326,12 @@ class Tab(AbstractTab):
                 self.driver.wait_until('[data-role="double-button"]')
             for _ in range(num_of_doubles):
                 self.driver.find_element_by_css_selector('[data-role="double-button"]').click()
+            for _ in range(bet - 2 ** num_of_doubles):
+                inner_bet_spots = self.driver.driver.find_elements_by_xpath(
+                    "//*[contains(@class,'slingshot-wrapper') or contains(@class,'classicStandard-wrapper')]//*[@data-value != '0']//*[contains(@class,'text-background')]"
+                )
+                for inner_bet_spot in inner_bet_spots:
+                    inner_bet_spot.click()
 
             if not self.play_real:
                 undo_button = self.driver.find_element_by_css_selector('[data-role="undo-button"]')
@@ -355,7 +376,6 @@ class Browser:
         assert len(tables) == len(table_names)
         tabs = []
         j = 0
-        print(table_names)
         for i, table in enumerate(tables):
             self.driver.driver.maximize_window()
             if self.credentials['live_roulette_lobby'] == table_names[i]:
@@ -368,9 +388,14 @@ class Browser:
                     self.sleep(0.5)
                     inner_tables = self.driver.find_elements_by_css_selector(
                         self.credentials['live_roulette_tables'])
+                    inner_tables_titles = [inner_table.text for inner_table in inner_tables]
                 for inner_i, inner_table in enumerate(inner_tables):
-                    # TODO: remove later
-                    if inner_i not in [8, 9, 10][:self.num_of_tables]:
+                    if self.num_of_tables:
+                        if inner_tables_titles[inner_i] not in ['Auto-Roulette', 'Auto-Roulette VIP',
+                                                                'Auto-Roulette La Partage']:
+                            continue
+                        self.num_of_tables -= 1
+                    else:
                         continue
 
                     self.driver.execute_script(f"window.open('{self.credentials['site']}', '{j}');")
