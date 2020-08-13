@@ -180,60 +180,64 @@ class CustomChromeOptions:
         # proxy = CustomProxy(proxy=proxy, countries=countries, excluded_countries=excluded_countries)
         # if proxy.proxy_server is not None:
         #     chrome_options.add_argument(f'--proxy-server={proxy.proxy_server}')
-        if proxy is not None:
-            url = URL(proxy)
-            if url.user:  # there should be authentication
-                with zipfile.ZipFile(PLUGIN_FILE, 'w') as zp:
-                    zp.writestr("manifest.json", MANIFEST_JSON)
-                    zp.writestr("background.js", BACKGROUND_JS % (url.host, url.port, url.user, url.password))
-                chrome_options.add_extension(PLUGIN_FILE)
-            else:
-                proxy_server = proxy.split("://")[-1]
-                LOG.info(f'proxy-server: {proxy_server}')
-                chrome_options.add_argument(f'--proxy-server={proxy_server}')
+        # if proxy is not None:
+        #     url = URL(proxy)
+        #     if url.user:  # there should be authentication
+        #         with zipfile.ZipFile(PLUGIN_FILE, 'w') as zp:
+        #             zp.writestr("manifest.json", MANIFEST_JSON)
+        #             zp.writestr("background.js", BACKGROUND_JS % (url.host, url.port, url.user, url.password))
+        #         chrome_options.add_extension(PLUGIN_FILE)
+        #     else:
+        #         proxy_server = proxy.split("://")[-1]
+        #         LOG.info(f'proxy-server: {proxy_server}')
+        #         chrome_options.add_argument(f'--proxy-server={proxy_server}')
+
+        # chrome_options.add_experimental_option('debuggerAddress', 'localhost:8888')
 
         # EXCLUDE_SWITCHES
-        if exclude_switches:
-            chrome_options.add_experimental_option("excludeSwitches", [
-                "disable-background-networking",
-                "disable-client-side-phishing-detection",
-                "disable-default-apps",
-                "disable-hang-monitor",
-                "disable-popup-blocking",
-                "disable-prompt-on-repost",
-                "enable-automation",
-                "enable-blink-features=ShadowDOMV0",
-                "enable-logging",
-                "force-fieldtrials=SiteIsolationExtensions/Control",
-                "load-extension=/var/folders/zz/zyxvpxvq6csfxvn_n0001_y8000_qk/T/.com.google.Chrome.HPBfiz/internal",
-                "log-level=0",
-                "password-store=basic",
-                "remote-debugging-port=0",
-                "test-type=webdriver",
-                "use-mock-keychain",
-                "user-data-dir=/var/folders/zz/zyxvpxvq6csfxvn_n0001_y8000_qk/T/.com.google.Chrome.drJGEY",
-            ])
+        # if exclude_switches:
+        #     chrome_options.add_experimental_option("excludeSwitches", [
+        #         "disable-background-networking",
+        #         "disable-client-side-phishing-detection",
+        #         "disable-default-apps",
+        #         "disable-hang-monitor",
+        #         "disable-popup-blocking",
+        #         "disable-prompt-on-repost",
+        #         "enable-automation",
+        #         "enable-blink-features=ShadowDOMV0",
+        #         "enable-logging",
+        #         "force-fieldtrials=SiteIsolationExtensions/Control",
+        #         "load-extension=/var/folders/zz/zyxvpxvq6csfxvn_n0001_y8000_qk/T/.com.google.Chrome.HPBfiz/internal",
+        #         "log-level=0",
+        #         "password-store=basic",
+        #         "remote-debugging-port=0",
+        #         "test-type=webdriver",
+        #         "use-mock-keychain",
+        #         "user-data-dir=/var/folders/zz/zyxvpxvq6csfxvn_n0001_y8000_qk/T/.com.google.Chrome.drJGEY",
+        #     ])
 
         # EXCLUDE_PHOTOS
-        if exclude_photos:
-            chrome_options.add_experimental_option("prefs", {
-                "profile.managed_default_content_settings.images": 2
-            })
+        # if exclude_photos:
+        #     chrome_options.add_experimental_option("prefs", {
+        #         "profile.managed_default_content_settings.images": 2
+        #     })
 
         # EXPERIMENTAL_OPTIONS
-        chrome_options.add_experimental_option('useAutomationExtension', False)
-        chrome_options.add_experimental_option("excludeSwitches", ['enable-automation'])
-        chrome_options.add_experimental_option("prefs", {
-            "profile.default_content_setting_values.notifications": 2,
-        })
+        # chrome_options.add_experimental_option('useAutomationExtension', False)
+        # chrome_options.add_experimental_option("excludeSwitches", ['enable-automation'])
+        # chrome_options.add_experimental_option("prefs", {
+        #     "profile.default_content_setting_values.notifications": 2,
+        # })
+
+        chrome_options.add_experimental_option('debuggerAddress', '127.0.0.1:1111')
 
         # ARGUMENTS
-        chrome_options.add_argument('--profile-directory=Default')
-        chrome_options.add_argument("--start-maximized")
+        # chrome_options.add_argument('--profile-directory=Default')
+        # chrome_options.add_argument("--start-maximized")
 
         # HIDE
-        if hide:
-            chrome_options.add_argument('--headless')
+        # if hide:
+        #     chrome_options.add_argument('--headless')
 
         self.chrome_options = chrome_options
 
@@ -264,6 +268,11 @@ class Driver:
             options=chrome_options.chrome_options,
         )
 
+        # driver = webdriver.Remote(
+        #     command_executor="http://127.0.0.1:63211", desired_capabilities={}
+        # )
+        # driver.session_id = '3144819bb1b2ceec1fc62925d7ceff22'
+
         # # WINDOW_SIZE
         # width = width or random.randint(900, 1400)
         # height = height or random.randint(900, 1400)
@@ -283,6 +292,9 @@ class Driver:
             driver.implicitly_wait(timeout)
 
         self.driver = driver
+
+        # print(f'url: {driver.command_executor._url}')
+        # print(f'session_id: {driver.session_id}')
 
         # LOADING COOKIE
         self.cookie = Cookie(self.driver, COOKIE)

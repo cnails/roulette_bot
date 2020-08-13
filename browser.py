@@ -1,14 +1,17 @@
 import functools
+import threading
 import time
 from abc import ABC, abstractmethod
-from math import floor, log
+from queue import Queue
+from subprocess import Popen, PIPE
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.expected_conditions import _find_element
 
-from calculator import Calculator, TABLES
 from local_settings import CREDENTIALS
 from py_files.chrome_driver import Driver
+
+# Calculator, TABLES
 
 SITES = sorted(CREDENTIALS)
 PLACE_YOUR_BETS = 'PLACE YOUR BETS'
@@ -20,11 +23,20 @@ RULE_BREAKS = [
 ]
 BREAK_RULES = ('Максимальное количество неудачных предсказаний', 'Нет')
 CHIPS = ['0.20', '0.50', '1', '5', '25', '100']
+NUM_TABLES = 1
+queues = [Queue() for _ in range(NUM_TABLES)]
+
+
+def read_stdout(stdout, queue):
+    while True:
+        line = stdout.readline()
+        queue.put(line)
 
 
 class Iframe:
-    def __init__(self, driver):
+    def __init__(self, driver, num=0):
         self.driver = driver
+        self.num = num
 
     def __enter__(self):
         """ ENTERING IFRAMES """
@@ -35,6 +47,9 @@ class Iframe:
         self.driver.wait_until('[id="GameObjectContainer"]')
         iframes = self.driver.driver.find_elements_by_tag_name('iframe[id="GameObjectContainer"]')
         self.driver.driver.switch_to.frame(iframes[-1])
+
+        iframes = self.driver.driver.find_elements_by_tag_name('iframe')
+        self.driver.driver.switch_to.frame(iframes[self.num])
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.driver.driver.switch_to.default_content()  # switch back to the main window
@@ -77,7 +92,6 @@ class TextToChange:
                 break
             except Exception:
                 pass
-        # print(time.time(), actual_text, self.text)
         if actual_text.startswith(('0', '1', '2', '3')):
             self.number = int(actual_text[:2].strip())
         if actual_text not in self.text and actual_text in \
@@ -97,7 +111,7 @@ class TextToChange:
 def activate_tab(func):
     @functools.wraps(func)
     def wrapper_decorator(*args, **kwargs):
-        args[0].driver.driver.switch_to.window(args[0].window_name)
+        # args[0].driver.driver.switch_to.window(args[0].window_name)
         value = func(*args, **kwargs)
         return value
 
@@ -109,8 +123,7 @@ class Tab(AbstractTab):
         self.driver = driver
         self.window_name = window_name
         self.credentials = credentials
-        self.calculator = Calculator(**kwargs)
-        self.calculator.change_tab(TABLES)
+        self.file_outs = kwargs.get('file_outs')
         self.text_to_change = TextToChange(
             (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]
         )
@@ -119,27 +132,19 @@ class Tab(AbstractTab):
         self._set_video_settings()
 
         # CHIPS
-        self.chip_num = CHIPS.index(kwargs['chip'])
+        # self.chip_num = CHIPS.index(kwargs['chip'])
 
         self.bet_spots = self._get_bet_spots()
 
         # CONDITIONS
-        self.rule_break = kwargs['rule_break']
-        self.rule_break_second = kwargs['rule_break_second']
-        self.rule_break_value = kwargs['rule_break_value_first']
-        self.rule_break_value_second = kwargs['rule_break_value_second']
-        self.num_of_repetitions = kwargs['num_of_repetitions']
-        self.play_real = kwargs['play_real']
-        self.num_of_fails = 0
-        self.prev_prediction = set()
-        self.turn_on = True
+        self.process = kwargs.get('process')
 
-        self.spins_for_red = kwargs['spins_for_red']
-        self.spin = 0
-        self.last_made_bet = 0
+        self.spins = [0 for _ in range(NUM_TABLES)]
 
-        with Iframe(self.driver):
-            self.chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
+        self.inner_wheel_time_arounds = [0 for _ in range(NUM_TABLES)]
+        self.ball_time_arounds = [0 for _ in range(NUM_TABLES)]
+        self.angles = [0 for _ in range(NUM_TABLES)]
+        self.numbers = [-1 for _ in range(NUM_TABLES)]
 
     @activate_tab
     def _set_video_settings(self):
@@ -225,118 +230,93 @@ class Tab(AbstractTab):
             self.driver.find_element_by_css_selector('[data-role="undo-button"]').click()
 
     @activate_tab
-    def make_bets(self, run, tab_num):  # gui_window,
-        self.driver.driver.switch_to.window(self.window_name)
+    def make_bets(self):  # , run, tab_num, gui_window,
+        # self.driver.driver.switch_to.window(self.window_name)
         # self.set_radial_chips(num=0)  # WAITING HERE
-        with Iframe(self.driver):
-            if not self.text_to_change():
-                return
-            number = self.text_to_change.number
-            self.text_to_change = TextToChange(
-                (By.CSS_SELECTOR, self.credentials['status_text']), self.driver, [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU])
-        if number == -1:
-            number = self.get_recent_number()
-        if number not in self.prev_prediction:
-            if self.prev_prediction:
-                self.num_of_fails += 1
-                # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[4][-1].update(self.num_of_fails)
-        else:
-            if self.num_of_repetitions and self.rule_break != RULE_BREAKS[2]:
-                if not self.turn_on:
-                    self.rule_break_value = self.rule_break_value_second
-                    self.rule_break = self.rule_break_second
-                    # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[3][-1].update(
-                    #     f"{BREAK_RULES.index(self.rule_break) + 1} ({self.rule_break_value})")
-                    self.turn_on = True
-                    # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('ДА')
-                    # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(text_color='darkgreen')
-                    self.num_of_repetitions -= 1
-                    # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[2][-1].update(str(self.num_of_repetitions))
-            self.num_of_fails = 0
-            # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[4][-1].update(str(self.num_of_fails))
+        for num in range(NUM_TABLES):
+            with Iframe(self.driver, num=num):
+                if not self.text_to_change():
+                    continue
 
-        self.calculator.set_number(number)
-        self.spin += 1
-        # self.set_zero_and_undo()
+                inner_wheel_time_around = 0
+                ball_time_around = 0
+                angle = 0
 
-        # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(
-        #     str(self.spins_for_red - (self.spin - self.last_made_bet)))
+                q = queues[num]
+                with q.mutex:
+                    q.queue.clear()
 
-        if (self.spin - self.last_made_bet) % self.spins_for_red == 0:
-            with Iframe(self.driver):
-                # chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
-                # self.driver.execute_script('arguments[0].click();', self.chips[0])  #
-                self.chips[0].click()
+                # self.driver.find_element_by_css_selector(
+                #     '[data-role="fullscreen-video-classic-mask"]'
+                # ).click()
 
-                self.last_made_bet = self.spin
-                # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[6][-1].update(
-                #     str(self.spins_for_red - (self.spin - self.last_made_bet)))
+                start = time.time()
+                while not (inner_wheel_time_around and ball_time_around and angle):
+                    line = q.get()
+                    if line:
+                        if line.startswith('Inner wheel') and not inner_wheel_time_around:
+                            inner_wheel_time_around = float(line.split()[-1])
+                        elif line.startswith('Ball') and not ball_time_around:
+                            ball_time_around = float(line.split()[-1])
+                        elif line.startswith('greenCenterPolar') and not angle:
+                            angle = float(line.split()[-1])
+                print(
+                    f'time: {time.time() - start}, ', end='', file=self.file_outs[num], flush=True
+                )
+                number = self.text_to_change.number
+                self.text_to_change = TextToChange(
+                    (By.CSS_SELECTOR, self.credentials['status_text']), self.driver,
+                    [PLACE_YOUR_BETS, PLACE_YOUR_BETS_RU]
+                )
+            if number == -1:
+                number = self.get_recent_number()
 
-                self.bet_spots['red'].click()
-                if not self.play_real:
+            print(
+                f'start_number: {self.numbers[num]}, end_number: {number}, start_angle: {self.angles[num]}, '
+                f'end_angle: {angle}, inner_wheel_time_around: {self.inner_wheel_time_arounds[num]}, '
+                f'ball_time_around: {self.ball_time_arounds[num]}', file=self.file_outs[num], flush=True
+            )
+
+            self.inner_wheel_time_arounds[num] = inner_wheel_time_around
+            self.ball_time_arounds[num] = ball_time_around
+            self.angles[num] = angle
+            self.numbers[num] = number
+
+            self.spins[num] += 1
+
+            if self.spins[num] % 30 == 0:
+                with Iframe(self.driver):
+                    self.bet_spots['red'].click()
                     undo_button = self.driver.find_element_by_css_selector('[data-role="undo-button"]')
                     undo_button.click()
 
-        recommended_numbers = self.calculator.get_recommended_values()
-        self.prev_prediction = set(recommended_numbers)
-
-        # max_ = self.calculator.get_field_value('Max')
-        # balance = self.calculator.get_field_value('Суммарный баланс')
-        # if self.rule_break == RULE_BREAKS[0]:
-        #     if max_ - balance >= self.rule_break_value:
-        #         if number not in self.prev_prediction:
-        #             self.turn_on = False
-        if self.rule_break == RULE_BREAKS[1]:
-            if self.num_of_fails >= self.rule_break_value:
-                self.turn_on = False
-        # else:  # self.rule_break == 'Нет'
-        #     pass
-        # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[5][-1].update(str(max_ - balance))
-        if not self.turn_on:
-            # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update('НЕТ')
-            # gui_window.Element(key=f'-TABLE{tab_num}-').Rows[0][-1].update(text_color='darkred')
-            # if not self.num_of_repetitions:
-            #     gui_window.Element(key=f'-TABLE{tab_num}-').Rows[1][-1].update('ДА')
-            #     gui_window.Element(key=f'-TABLE{tab_num}-').Rows[1][-1].update(text_color='darkgreen')
-            return
-
-        if not run:
-            return
-
-        bet = self.calculator.get_field_value('Ставка') or 1
-        if tab_num == 1 and self.chip_num == 0:
-            bet *= 2
-
-        with Iframe(self.driver):
-            print(f'recommended_numbers: {recommended_numbers}')
-
-            # SET CHIPS
-            # chips = self.driver.find_elements_by_css_selector(self.credentials['radial_chips'])
-            self.chips[self.chip_num].click()
-            # self.driver.execute_script('arguments[0].click();', self.chips[self.chip_num])  #
-
-            if recommended_numbers:
-                self.last_made_bet = self.spin
-
-            for recommended_number in recommended_numbers:
-                self.bet_spots[str(recommended_number)].click()
-
-            num_of_doubles = int(floor(log(bet, 2)))
-            if num_of_doubles:
-                self.driver.wait_until('[data-role="double-button"]')
-            for _ in range(num_of_doubles):
-                self.driver.find_element_by_css_selector('[data-role="double-button"]').click()
-            for _ in range(bet - 2 ** num_of_doubles):
-                inner_bet_spots = self.driver.driver.find_elements_by_xpath(
-                    "//*[contains(@class,'slingshot-wrapper') or contains(@class,'classicStandard-wrapper')]//*[@data-value != '0']//*[contains(@class,'text-background')]"
-                )
-                for inner_bet_spot in inner_bet_spots:
-                    inner_bet_spot.click()
-
-            if not self.play_real:
-                undo_button = self.driver.find_element_by_css_selector('[data-role="undo-button"]')
-                for _ in range(len(recommended_numbers) * bet):
-                    undo_button.click()
+            # with Iframe(self.driver):
+            #     print(f'recommended_numbers: {recommended_numbers}')
+            #
+            #     self.chips[self.chip_num].click()
+            #
+            #     if recommended_numbers:
+            #         self.last_made_bet = self.spin
+            #
+            #     for recommended_number in recommended_numbers:
+            #         self.bet_spots[str(recommended_number)].click()
+            #
+            #     num_of_doubles = int(floor(log(bet, 2)))
+            #     if num_of_doubles:
+            #         self.driver.wait_until('[data-role="double-button"]')
+            #     for _ in range(num_of_doubles):
+            #         self.driver.find_element_by_css_selector('[data-role="double-button"]').click()
+            #     for _ in range(bet - 2 ** num_of_doubles):
+            #         inner_bet_spots = self.driver.driver.find_elements_by_xpath(
+            #             "//*[contains(@class,'slingshot-wrapper') or contains(@class,'classicStandard-wrapper')]//*[@data-value != '0']//*[contains(@class,'text-background')]"
+            #         )
+            #         for inner_bet_spot in inner_bet_spots:
+            #             inner_bet_spot.click()
+            #
+            #     if not self.play_real:
+            #         undo_button = self.driver.find_element_by_css_selector('[data-role="undo-button"]')
+            #         for _ in range(len(recommended_numbers) * bet):
+            #             undo_button.click()
 
     # def __del__(self):
     #     self.driver.driver.quit()
@@ -344,23 +324,24 @@ class Tab(AbstractTab):
 
 
 class Browser:
-    def __init__(self, site=SITES[0], driver=None, **kwargs):  # gui_window,
+    def __init__(self, site=SITES[0], driver=None, **kwargs):
         assert site in SITES, "site should be either of " + str(SITES)
         self.credentials = CREDENTIALS[site]
-        # self.gui_window = gui_window
 
         if driver is None:
             self.driver = Driver(**kwargs)
         else:
             self.driver = driver
         self.login()
-        self.num_of_tables = kwargs.get('num_of_tables')
+        self.num_of_tables = 1
         self.is_max_balance = kwargs.get('is_max_balance')
         self.max_balance = kwargs.get('max_balance')
         self.is_min_balance = kwargs.get('is_min_balance')
         self.min_balance = kwargs.get('min_balance')
+
+        self.process = kwargs.get('process')
+
         self.tabs = self._get_tabs(**kwargs)
-        self.run_roulettes()
 
     def sleep(self, quantity):
         time.sleep(quantity)
@@ -373,6 +354,9 @@ class Browser:
             table_names = [table_name.text.strip().lower() for table_name in table_names]
         else:
             raise NotImplemented
+        file_outs = []
+        for num in range(NUM_TABLES):
+            file_outs.append(open(f'predictions{num}.txt', 'a', encoding='utf-8'))
         assert len(tables) == len(table_names)
         tabs = []
         j = 0
@@ -416,11 +400,13 @@ class Browser:
                     with Iframe(self.driver):
                         self.driver.wait_until(self.credentials['live_roulette_tables'])
                         inner_inner_tables = self.driver.find_elements_by_css_selector(
-                            self.credentials['live_roulette_tables'])
+                            self.credentials['live_roulette_tables']
+                        )
                         self.driver.execute_script("arguments[0].scrollIntoView();", inner_inner_tables[inner_i])
                         self.sleep(1.5)
                         inner_inner_tables[inner_i].click()
                         roulette_type = table_names[i].lower()
+                    kwargs['file_outs'] = file_outs
                     tabs.append(Tab(f'{j}', self.driver, self.credentials, **kwargs))
                     self.sleep(1)
                     j += 1
@@ -465,47 +451,27 @@ class Browser:
                 self.driver.find_element_by_css_selector('[type="submit"]').click()
 
     def run_roulettes(self):
-        self.driver.driver.switch_to.window(self.tabs[0].window_name)
-        start_balance = self.tabs[0].get_current_balance()
-        max_balance = start_balance
-        # self.gui_window.Element(key='-VARS-').Rows[0][-1].update(str(start_balance))
-        # self.gui_window.Element(key='-VARS-').Rows[2][-1].update(str(max_balance))
-        run = True
+        # self.driver.driver.switch_to.window(self.tabs[0].window_name)
         while True:
-            for i, tab in enumerate(self.tabs):
-                current_balance = tab.get_current_balance()
-                if current_balance > max_balance:
-                    max_balance = current_balance
-                #     self.gui_window.Element(key='-VARS-').Rows[2][-1].update(str(max_balance))
-                # self.gui_window.Element(key='-VARS-').Rows[1][-1].update(str(current_balance))
-                if self.is_max_balance and current_balance - start_balance >= self.max_balance or \
-                        self.is_min_balance and current_balance - max_balance <= -self.min_balance:
-                    # self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update('ДА')
-                    # self.gui_window.Element(key=f'-TABLE{i + 1}-').Rows[1][-1].update(text_color='darkgreen')
-                    run = False
-                # time.sleep(0.1)  # ?
-                # print(tab.num_of_fails, tab.prev_prediction, tab.turn_on)
-                tab.make_bets(run, i + 1)  # self.gui_window,
+            self.tabs[0].make_bets()
 
 
 def main():
+    ps = []
+    for _ in range(NUM_TABLES):
+        time.sleep(2)
+        ps.append(Popen(
+            [r"C:\Users\Eduard\source\repos\ConsoleApplication3\x64\Debug\ConsoleApplication3.exe"],
+            stdout=PIPE, universal_newlines=True,
+        ))
+
+    ts = [threading.Thread(target=read_stdout, args=(p.stdout, q), daemon=True) for q, p in zip(queues, ps)]
+    for t in ts:
+        t.start()
+
     browser = Browser(site='pinnacle')
     browser.run_roulettes()
 
 
 if __name__ == "__main__":
     main()
-
-# from main import *; from selenium import webdriver; from py_files.cookie import Cookie; from local_settings import CREDENTIALS
-# driver = webdriver.Chrome('chromedriver.exe', options=webdriver.ChromeOptions())
-# driver.get('https://www.google.com')
-# cookie = Cookie(driver, 'cookie.txt')
-# cookie.load_cookie()
-# driver.get('https://www1.pinnacle.com/en/casino/games/live/roulette')
-# class self:
-#     driver = driver
-#     credentials = CREDENTIALS['pinnacle']
-#
-# tables = self.driver.find_elements_by_css_selector(self.credentials['tables'])
-# table_names = self.driver.find_elements_by_css_selector(self.credentials['table_names'])
-# table_names = [table_name.text.strip().lower() for table_name in table_names]

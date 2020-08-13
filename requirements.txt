@@ -11,3 +11,4 @@ schedule==0.6.0
 pysimplegui==4.24.0
 PyInstaller==3.6
 yarl==1.4.2
+

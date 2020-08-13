@@ -8,7 +8,8 @@ CREDENTIALS = {
         'login': 'https://www.pinnacle.com/ru/account/login/?appId=casino&returnPath=%2fru%2fcasino%2fgames%2flive%2froulette',
         'login_check': '.account-menu-container',
         'email': 'happypuffin7@gmail.com',
-        'user': 'dr770149',  # 'EG1245397'
+        'user': 'dr770149',
+        # 'EG1245397'
         'password': 'Balbes!9896',  # '19821305aA'
         'current_balance': '[data-role="balance-label__value"]',
         'video_quality': '[data-role="select-option"]',
