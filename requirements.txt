@@ -2,7 +2,7 @@ selenium==3.141.0
 beautifulsoup4==4.9.1
 fake-useragent==0.1.11
 requests==2.24.0
-numpy==1.19.0
+numpy==1.22.0
 pywinauto==0.6.8
 pathlib==1.0.1
 proxybroker==0.3.2
